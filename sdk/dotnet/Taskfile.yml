@@ -1,0 +1,40 @@
+version: '3'
+
+vars:
+  DOTNET_PROJECT: "github.com/pulumi/pulumi/sdk/v3/dotnet/cmd/pulumi-language-dotnet"
+  DOTNET_VERSION:
+    sh: cd ../../ && pulumictl get version --language dotnet && cd sdk/dotnet
+
+tasks:
+  ensure:
+    cmds:
+      - ""
+
+  lint:
+    cmds:
+      - ""
+
+  build-binary:
+    cmds:
+      - go build -o ../../bin/pulumi-language-dotnet -ldflags "-X github.com/pulumi/pulumi/sdk/v3/go/common/version.Version={{.DOTNET_VERSION}}" {{.DOTNET_PROJECT}}
+    sources:
+      - ./cmd/pulumi-language-dotnet/*.go
+    generates:
+      - ../../bin/pulumi-language-dotnet
+    method: checksum
+
+  build-sln:
+    cmds:
+      - "dotnet build dotnet.sln /p:Version={{.DOTNET_VERSION}}"
+    sources:
+      - ./dotnet.sln
+    generates:
+      - ./Pulumi/bin/Debug/*.nupkg
+      - ./Pulumi.Automation/bin/Debug/*.nupkg
+      - ./Pulumi.FSharp/bin/Debug/*.nupkg
+    method: checksum
+
+  build:
+    cmds:
+      - task: build-sln
+      - task: build-binary

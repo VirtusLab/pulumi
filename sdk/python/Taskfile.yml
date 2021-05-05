@@ -1,0 +1,28 @@
+version: '3'
+
+vars:
+  PYENV: "./env"
+  PYENVSRC: "{{ .PYENV }}/src"
+  PY_PROJECT: "github.com/pulumi/pulumi/sdk/v3/go/pulumi-language-go"
+  PY_VERSION:
+    sh: cd ../../ && pulumictl get version --language python && cd sdk/go
+
+tasks:
+  ensure:
+    cmds:
+      - pipenv install --dev
+      - mkdir -p "{{ .PYENVSRC }}"
+
+  lint:
+    cmds:
+      - MYPYPATH=./stubs pipenv run mypy ./lib/pulumi --config-file=mypy.ini
+#      - pipenv run pylint ./lib/pulumi --rcfile=.pylintrc
+
+  build:
+    cmds:
+      - go build -o ../../bin/pulumi-language-python -ldflags "-X github.com/pulumi/pulumi/sdk/v3/go/common/version.Version={{.PY_VERSION}}" {{.PY_PROJECT}}
+    sources:
+      - ./cmd/pulumi-language-python/*.go
+    generates:
+      - ../../bin/pulumi-language-python
+    method: checksum

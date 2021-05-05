@@ -1,0 +1,83 @@
+version: '3'
+
+vars:
+  PULUMI_BIN: /opt/pulumi/bin
+
+tasks:
+  __default:
+    desc: A dev wrapper around ensure, lint, build + install
+    cmds:
+      - task: ensure
+      - task: lint
+      - task: build
+      - task: install
+
+  ensure:
+    desc: Ensure project dependencies are in-place
+    cmds:
+      - task: pkg:ensure
+      - task: sdk:ensure
+      - task: tests:ensure
+      - task: dotnet:ensure
+      - task: go:ensure
+      - task: nodejs:ensure
+      - task: python:ensure
+
+  lint:
+    desc: Lint the CLI, Language SDKs and the tests folder
+    cmds:
+      - task: pkg:lint
+      - task: sdk:lint
+      - task: tests:lint
+      - task: dotnet:lint
+      - task: go:lint
+      - task: nodejs:lint
+      - task: python:lint
+
+  build-proto:
+    desc: Build the protos
+    cmds:
+      - task: proto:build-proto
+
+  build:
+    desc: Build the CLI + SDKs - this does not install the binaries
+    cmds:
+      - task: pkg:build
+      - task: sdk:build
+      - task: tests:build
+      - task: dotnet:build
+      - task: go:build
+      - task: nodejs:build
+      - task: python:build
+
+  install:
+    desc: Install the CLI + Language host binaries
+    cmds:
+      - task: pkg:install
+
+
+includes:
+  pkg:
+    taskfile: ./pkg/Taskfile.yml
+    dir: ./pkg
+  sdk:
+    taskfile: ./sdk/Taskfile.yml
+    dir: ./sdk
+  tests:
+    taskfile: ./tests/Taskfile.yml
+    dir: ./tests
+  dotnet:
+    taskfile: ./sdk/dotnet/Taskfile.yml
+    dir: ./sdk/dotnet
+  go:
+    taskfile: ./sdk/go/Taskfile.yml
+    dir: ./sdk/go
+  nodejs:
+    taskfile: ./sdk/nodejs/Taskfile.yml
+    dir: ./sdk/nodejs
+  python:
+    taskfile: ./sdk/python/Taskfile.yml
+    dir: ./sdk/python
+  proto:
+    taskfile: ./sdk/proto/Taskfile.yml
+    dir: ./sdk/proto
