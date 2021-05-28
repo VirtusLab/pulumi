@@ -1,7 +1,6 @@
 PROJECT_NAME := Pulumi SDK
 PROJECT_ROOT := $(realpath .)
-SUB_PROJECTS := sdk/dotnet sdk/nodejs sdk/python sdk/go
-
+SUB_PROJECTS := sdk/jvm sdk/dotnet sdk/nodejs sdk/python sdk/go
 include build/common.mk
 
 PROJECT         := github.com/pulumi/pulumi/pkg/v3/cmd/pulumi
