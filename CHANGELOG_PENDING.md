@@ -3,6 +3,9 @@
 - [codegen] - Encrypt input args for secret properties.
   [#7128](https://github.com/pulumi/pulumi/pull/7128)
 
+- [sdk/jvm] - Adds an **experimental** JVM support for Pulumi. This code is in experimental state and is subject
+  to change at any point.
+
 ### Bug Fixes
 
 - [cli] - Send plugin install output to stderr, so that it doesn't
