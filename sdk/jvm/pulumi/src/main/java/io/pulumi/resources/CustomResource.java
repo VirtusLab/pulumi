@@ -11,7 +11,7 @@ public class CustomResource extends Resource {
         this(type, name, args, options, false);
     }
 
-    private CustomResource(
+    protected CustomResource(
             String type, String name, @Nullable ResourceArgs args, @Nullable CustomResourceOptions options, boolean dependency) {
         super(type, name, true, args == null ? ResourceArgs.EMPTY : args, options == null ? CustomResourceOptions.EMPTY : options, false, dependency);
     }
