@@ -14,7 +14,7 @@ type JavaPropertyInfo struct {
 // JavaPackageInfo represents the JVM language-specific info for a package.
 type JavaPackageInfo struct {
 	PackageReferences      map[string]string `json:"packageReferences,omitempty"`
-	Packages	           map[string]string `json:"packages,omitempty"`
+	Packages               map[string]string `json:"packages,omitempty"`
 	Compatibility          string            `json:"compatibility,omitempty"`
 	DictionaryConstructors bool              `json:"dictionaryConstructors,omitempty"`
 }
@@ -61,4 +61,3 @@ func (importer) ImportPackageSpec(pkg *schema.Package, raw json.RawMessage) (int
 	}
 	return info, nil
 }
-
