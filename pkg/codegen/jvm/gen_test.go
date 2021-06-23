@@ -15,43 +15,25 @@ func TestGeneratePackage(t *testing.T) {
 		expectedFiles []string
 	}{
 		{
-			"Simple schema with local resource properties",
-			"simple-resource-schema",
-			[]string{
-				"Resource.java",
-				"OtherResource.java",
-				"ArgFunction.java",
-			},
-		},
-		{
+			//TODO: this is not final
 			"Simple schema with enum types",
 			"simple-enum-schema",
 			[]string{
-				"tree/V1/RubberTree.java",
-				"tree/V1/Nursery.java",
-				"tree/V1/Enums.java",
-				"Enums.java",
-				"inputs/ContainerArgs.java",
-				"outputs/Container.java",
-			},
-		},
-		{
-			"External resource schema",
-			"external-resource-schema",
-			[]string{
-				"inputs/PetArgs.java",
-				"ArgFunction.java",
-				"Cat.java",
-				"Component.java",
-				"Workload.java",
-			},
-		},
-		{
-			"Simple schema with plain properties",
-			"simple-plain-schema",
-			[]string{
-				"Inputs/FooArgs.cs",
-				"Component.cs",
+				"Plant/Provider.java",
+				"Plant/Tree/V1/README.md",
+				"Plant/Tree/V1/Diameter.java",
+				"Plant/Inputs/ContainerArgs.java",
+				"Plant/Outputs/Container.java",
+				"Plant/ContainerBrightness.java",
+				"Plant/ContainerColor.java",
+				"Plant/Tree/V1/Nursery.java",
+				"Plant/README.md",
+				"Plant/ContainerSize.java",
+				"Plant/tree/README.md",
+				"Plant/Tree/V1/RubberTree.java",
+				"Plant/Tree/V1/Farm.java",
+				"Plant/Tree/V1/RubberTreeVariety.java",
+				"Plant/Tree/V1/TreeSize.java",
 			},
 		},
 	}
@@ -74,4 +56,3 @@ func TestGeneratePackage(t *testing.T) {
 		})
 	}
 }
-
