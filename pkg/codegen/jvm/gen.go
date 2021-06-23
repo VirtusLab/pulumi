@@ -157,7 +157,7 @@ func (mod *modContext) propertyName(p *schema.Property) string {
 	if n, ok := mod.propertyNames[p]; ok {
 		return n
 	}
-	return title(p.Name)
+	return p.Name
 }
 
 func (mod *modContext) typeName(t *schema.ObjectType, state, input, args bool) string {
@@ -190,7 +190,7 @@ func (mod *modContext) typeString(t schema.Type, qualifier string, input, state,
 		var listFmt string
 		switch {
 		case wrapInput:
-			// TODO: we have to fix types that we use internally
+			// TODO: need to fix types that we use internally
 			listFmt, optional = "InputList<%v>", false
 		case requireInitializers:
 			listFmt = "List<%v>"
@@ -468,104 +468,45 @@ func (mod *modContext) getDefaultValue(dv *schema.DefaultValue, t schema.Type) (
 	return val, nil
 }
 
-func (pt *plainType) genInputProperty(w io.Writer, prop *schema.Property, indent string) {
-	argsType := pt.args && !prop.IsPlain
+func printDeprecatedAttribute(w io.Writer, deprecationMessage, indent string) {
+	if deprecationMessage != "" {
+		fmt.Fprintf(w, "%s// %s", indent, deprecationMessage)
+		fmt.Fprintf(w, "%s@deprecated\n", indent)
+	}
+}
 
+func (pt *plainType) genInputProperty(w io.Writer, prop *schema.Property, inputTypeString, indent string) error {
+	argsType := pt.args && !prop.IsPlain
 	propertyName := pt.mod.propertyName(prop)
 	propertyType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, false, !prop.IsRequired)
-
-	// First generate the input attribute.
-
-	//TODO:
-	attributeArgs := ""
-	if prop.IsRequired {
-		attributeArgs = ", required: true"
-	}
-	if pt.res != nil && pt.res.IsProvider {
-		json := true
-		if prop.Type == schema.StringType {
-			json = false
-		} else if t, ok := prop.Type.(*schema.TokenType); ok && t.UnderlyingType == schema.StringType {
-			json = false
-		}
-		if json {
-			attributeArgs += ", json: true"
+	backingFieldType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, false, true)
+	backingFieldName := propertyName
+	defaultValue := "Optional.empty()"
+	if prop.DefaultValue != nil {
+		var err error
+		defaultValue, err = pt.mod.getDefaultValue(prop.DefaultValue, prop.Type)
+		if err != nil {
+			return err
 		}
 	}
 
-	indent = strings.Repeat(indent, 2)
-
-	needsBackingField := false
-	switch prop.Type.(type) {
-	case *schema.ArrayType, *schema.MapType:
-		needsBackingField = true
-	}
-	if prop.Secret {
-		needsBackingField = true
-	}
-
-	// Next generate the input property itself. The way this is generated depends on the type of the property:
-	// complex types like lists and maps need a backing field. Secret properties also require a backing field.
-
-	//TODO:::
-	if needsBackingField {
-		backingFieldName := "_" + prop.Name
-		requireInitializers := !pt.args || prop.IsPlain
-		backingFieldType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, requireInitializers, false)
-
-		fmt.Fprintf(w, "%sprivate %s? %s;\n", indent, backingFieldType, backingFieldName)
-
-		if prop.Comment != "" {
-			fmt.Fprintf(w, "\n")
-			printComment(w, prop.Comment, indent)
-		}
-		// TODO :??printObsoleteAttribute(w, prop.DeprecationMessage, indent)
-
-		switch prop.Type.(type) {
-		case *schema.ArrayType, *schema.MapType:
-			// Note that we use the backing field type--which is just the property type without any nullable annotation--to
-			// ensure that the user does not see warnings when initializing these properties using object or collection
-			// initializers.
-			fmt.Fprintf(w, "%spublic %s %s\n", indent, backingFieldType, propertyName)
-			//TODO: seter i getter?
-			fmt.Fprintf(w, "%s{\n", indent)
-			fmt.Fprintf(w, "%s    get => %[2]s ?? (%[2]s = new %[3]s());\n", indent, backingFieldName, backingFieldType)
-		default:
-			fmt.Fprintf(w, "%spublic %s? %s\n", indent, backingFieldType, propertyName)
-			fmt.Fprintf(w, "%s{\n", indent)
-			fmt.Fprintf(w, "%s    get => %s;\n", indent, backingFieldName)
-		}
-		if prop.Secret {
-			fmt.Fprintf(w, "%s    set\n", indent)
-			fmt.Fprintf(w, "%s    {\n", indent)
-			// Since we can't directly assign the Output from CreateSecret to the property, use an Output.All or
-			// Output.Tuple to enable the secret flag on the data. (If any input to the All/Tuple is secret, then the
-			// Output will also be secret.)
-			switch t := prop.Type.(type) {
-			case *schema.ArrayType:
-				fmt.Fprintf(w, "%s        var emptySecret = Output.CreateSecret(ImmutableArray.Create<%s>());\n", indent, t.ElementType.String())
-				fmt.Fprintf(w, "%s        %s = Output.All(value, emptySecret).Apply(v => v[0]);\n", indent, backingFieldName)
-			case *schema.MapType:
-				fmt.Fprintf(w, "%s        var emptySecret = Output.CreateSecret(ImmutableDictionary.Create<string, %s>());\n", indent, t.ElementType.String())
-				fmt.Fprintf(w, "%s        %s = Output.All(value, emptySecret).Apply(v => v[0]);\n", indent, backingFieldName)
-			default:
-				fmt.Fprintf(w, "%s        var emptySecret = Output.CreateSecret(0);\n", indent)
-				fmt.Fprintf(w, "%s        %s = Output.Tuple<%s?, int>(value, emptySecret).Apply(t => t.Item1);\n", indent, backingFieldName, backingFieldType)
-			}
-			fmt.Fprintf(w, "%s    }\n", indent)
-		} else {
-			fmt.Fprintf(w, "%s    set => %s = value;\n", indent, backingFieldName)
-		}
-		fmt.Fprintf(w, "%s}\n", indent)
-	} else {
-		initializer := ""
-		if prop.IsRequired && (!isValueType(prop.Type) || (pt.args && !prop.IsPlain)) {
-			initializer = " = null!;"
-		}
-
+	if prop.Comment != "" {
+		fmt.Fprintf(w, "\n")
 		printComment(w, prop.Comment, indent)
-		fmt.Fprintf(w, "%spublic %s %s { get; set; }%s\n", indent, propertyType, propertyName, initializer)
 	}
+	printDeprecatedAttribute(w, prop.DeprecationMessage, indent)
+	fmt.Fprintf(w, "%sprivate %s %s = %s;\n", indent, backingFieldType, backingFieldName, defaultValue)
+	fmt.Fprintf(w, "%spublic %s get%s() {\n", indent, propertyType, title(propertyName))
+	fmt.Fprintf(w, "%s   return %s.isPresent() ? %s.get() : new %s();\n", indent, backingFieldName, backingFieldName, propertyType)
+	fmt.Fprintf(w, "%s}\n", indent)
+	fmt.Fprintf(w, "%spublic %s set%s(%s %s) {\n", indent, inputTypeString, title(propertyName), propertyType, propertyName)
+	fmt.Fprintf(w, "%s    this.%s = %s != null ? Optional.of(%s) : Optional.empty();\n", indent, backingFieldName, propertyName, propertyName)
+	fmt.Fprintf(w, "%s    return this;\n", indent)
+	fmt.Fprintf(w, "%s}\n", indent)
+
+	// TODO secrets, state
+
+	return nil
 }
 
 func (mod *modContext) genConfig(variables []*schema.Property) (string, error) {
@@ -668,7 +609,23 @@ func (mod *modContext) gen(fs fs) error {
 	}
 
 	// Functions
-	// TODO
+	for _, f := range mod.functions {
+		imports := map[string]codegen.StringSet{}
+		mod.getImports(f, imports)
+
+		buffer := &bytes.Buffer{}
+		importStrings := pulumiImports
+		for _, i := range imports {
+			importStrings = append(importStrings, i.SortedValues()...)
+		}
+		mod.genHeader(buffer, importStrings)
+
+		if err := mod.genFunction(buffer, f); err != nil {
+			return nil
+		}
+
+		addFile(tokenToName(f.Token)+".java", buffer.String())
+	}
 
 	// Nested types
 	for _, t := range mod.types {
@@ -709,9 +666,66 @@ func (mod *modContext) gen(fs fs) error {
 	}
 
 	// Enums
-	// TODO
+	// TOD
+	for _, en := range mod.enums {
+		buffer := &bytes.Buffer{}
+		mod.genHeader(buffer, []string{})
+
+		if err := mod.genEnum(buffer, en); err != nil {
+			return err
+		}
+
+		addFile(tokenToName(en.Token)+".java", buffer.String())
+	}
 
 	return nil
+}
+
+func (mod *modContext) genFunction(w io.Writer, fun *schema.Function) error {
+	return nil
+}
+
+func (mod *modContext) genEnum(w io.Writer, enum *schema.EnumType) error {
+	enumName := tokenToName(enum.Token)
+	underlyingType := mod.typeString(enum.ElementType, "", false, false, false, false, false, false)
+
+	switch enum.ElementType {
+	case schema.StringType, schema.IntType, schema.NumberType:
+		printComment(w, enum.Comment, "    ")
+		fmt.Fprintf(w, "    public enum %s {\n", enumName)
+		for i, e := range enum.Elements {
+			// If the enum doesn't have a name, set the value as the name.
+			if e.Name == "" {
+				e.Name = fmt.Sprintf("%v", e.Value)
+			}
+			safeName, err := makeSafeEnumName(e.Name, enumName)
+			if err != nil {
+				return err
+			}
+			e.Name = safeName
+			if val, ok := e.Value.(string); ok {
+				fmt.Fprintf(w, "        %s(%q)", e.Name, val)
+			} else {
+				fmt.Fprintf(w, "        %s(%v)", e.Name, e.Value)
+			}
+			if i < len(enum.Elements)-1 {
+				fmt.Fprint(w, ",\n")
+			} else {
+				fmt.Fprint(w, ";\n")
+			}
+		}
+		fmt.Fprintf(w, "        public final %s label;\n", underlyingType)
+		fmt.Fprintf(w, "\n")
+		fmt.Fprintf(w, "        private %s(%s label) {\n", enumName, underlyingType)
+		fmt.Fprintf(w, "            this.label = label;\n")
+		fmt.Fprintf(w, "        }\n")
+		fmt.Fprintf(w, "    }\n")
+	default:
+		return errors.Errorf("enums of type %s are not yet implemented for this language", enum.ElementType.String())
+	}
+
+	return nil
+
 }
 
 func (mod *modContext) genType(w io.Writer, obj *schema.ObjectType, propertyTypeQualifier string, input, state, args bool, level int) error {
@@ -746,25 +760,43 @@ func (pt *plainType) genInputType(w io.Writer, level int) error {
 	printComment(w, pt.comment, indent)
 	fmt.Fprintf(w, "%spublic final class %s extends io.pulumi.%s {\n", indent, pt.name, pt.baseClass)
 
-	// Declare each input property.
+	indent = strings.Repeat(indent, 2)
+
+	// Declare each input property declaring default values when needed.
 	for _, p := range pt.properties {
-		pt.genInputProperty(w, p, indent)
+		err := pt.genInputProperty(w, p, pt.name, indent)
+
+		if err != nil {
+			return err
+		}
 		fmt.Fprintf(w, "\n")
 	}
-
-	// Generate a constructor that will set default values.
-	fmt.Fprintf(w, "%s    public %s() {\n", indent, pt.name)
+	// Generate a constructor that take required arguments
+	first := true
+	fmt.Fprintf(w, "%spublic %s(\n", indent, pt.name)
 	for _, prop := range pt.properties {
-		if prop.DefaultValue != nil {
-			dv, err := pt.mod.getDefaultValue(prop.DefaultValue, prop.Type)
-			if err != nil {
-				return err
+		if prop.IsRequired {
+			if first {
+				first = false
+			} else {
+				fmt.Fprint(w, ",\n")
 			}
+			argsType := pt.args && !prop.IsPlain
 			propertyName := pt.mod.propertyName(prop)
-			fmt.Fprintf(w, "%s        %s = %s;\n", indent, propertyName, dv)
+			propertyType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, false, true)
+			fmt.Fprintf(w, "%s    %s %s", indent, propertyType, propertyName)
 		}
 	}
-	fmt.Fprintf(w, "%s    }\n", indent)
+
+	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "%s    ) {\n", indent)
+	for _, prop := range pt.properties {
+		if prop.IsRequired {
+			propertyName := pt.mod.propertyName(prop)
+			fmt.Fprintf(w, "%s        this.%s = %s;\n", indent, propertyName, propertyName)
+		}
+	}
+	fmt.Fprintf(w, "%s}\n", indent)
 
 	// Close the class.
 	fmt.Fprintf(w, "%s}\n", indent)
@@ -850,9 +882,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 		baseType = "Pulumi.CustomResource"
 	}
 
-	// Deprecation
-
-	//	fmt.Fprintf(w, "    [%sResourceType(\"%s\")]\n", namespaceName(mod.namespaces, mod.pkg.Name), r.Token)
+	printDeprecatedAttribute(w, r.DeprecationMessage, "    ")
 	fmt.Fprintf(w, "    public class %s extends %s {\n", className, baseType)
 
 	var secretProps []string
@@ -863,7 +893,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 		required := prop.IsRequired
 		propertyType := mod.typeString(prop.Type, "Outputs", false, false, false, false, false, !required)
 
-		// Workaround the fact taht provider inputs come back as strings.
+		// Workaround the fact that provider inputs come back as strings.
 		if r.IsProvider && !schema.IsPrimitiveType(prop.Type) {
 			propertyType = "String"
 			if !prop.IsRequired {
@@ -908,13 +938,20 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 	if hasConstInputs {
 		argsOverride = "makeArgs(args)"
 	}
-	// TODO JAVADOCS
+
+	fmt.Fprintf(w, "        /**")
+	fmt.Fprintf(w, "        * Create a %s resource with the given name, arguments, and options.\n", className)
+	fmt.Fprintf(w, "        * @param name the unique name of the resource\n")
+	fmt.Fprintf(w, "        * @param args The arguments used to populate this resource's properties\n")
+	fmt.Fprintf(w, "        * @param options A bag of options that control this resource's behavior\n")
+
+	fmt.Fprintf(w, "        */\n")
 
 	fmt.Fprintf(w, "        public %s(string name, %s args, Optional<%s> options) {\n", className, argsType, optionsType)
 	if r.IsComponent {
-		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options, \"\"), true)\n", tok, argsOverride)
+		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options, \"\"), true);\n", tok, argsOverride)
 	} else {
-		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options, \"\"))\n", tok, argsOverride)
+		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options, \"\"));\n", tok, argsOverride)
 	}
 	fmt.Fprintf(w, "        }\n")
 	// TODO dictionary constructor
@@ -941,14 +978,15 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 
 	// Write the method that will calculate the resource options.
 	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "        private static %s makeResourceOptions(%s optins, Optional<Input<String>> id) {\n", optionsType, optionsType)
+	fmt.Fprintf(w, "        private static %s makeResourceOptions(%s options, Optional<Input<String>> id) {\n", optionsType, optionsType)
 	fmt.Fprintf(w, "            %s defaultOptions = new %s();\n", optionsType, optionsType)
-	fmt.Fprintf(w, "            defaultOptions.Verion = Unilities.Version;\n")
+	fmt.Fprintf(w, "            defaultOptions.Verion = Utilities.Version;\n")
 	if len(r.Aliases) > 0 {
 		// TODO aliases
 	}
 	// TODO secretProps
 	fmt.Fprintf(w, "            %s merged = %s.merge(defaultOptions, options);\n", optionsType, optionsType)
+	fmt.Fprintf(w, "            merged.Id = id.isPresent() ? id.get() : merged.Id;\n")
 	fmt.Fprintf(w, "            return merged;\n")
 	fmt.Fprintf(w, "        }\n")
 
@@ -956,6 +994,20 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 
 	// Close the class
 	fmt.Fprintf(w, "    }\n")
+
+	// Generate the resource args type.
+	args := &plainType{
+		mod:                   mod,
+		res:                   r,
+		name:                  name + "Args",
+		baseClass:             "ResourceArgs",
+		propertyTypeQualifier: "Inputs",
+		properties:            r.InputProperties,
+		args:                  true,
+	}
+	if err := args.genInputType(w, 1); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -992,9 +1044,11 @@ func printComment(w io.Writer, comment string, indent string) {
 	}
 
 	if len(lines) > 0 {
+		fmt.Fprintf(w, "%s/**\n", indent)
 		for _, l := range lines {
-			fmt.Fprintf(w, "%s// %s\n", indent, l)
+			fmt.Fprintf(w, "%s* %s\n", indent, l)
 		}
+		fmt.Fprintf(w, "%s*/\n", indent)
 	}
 }
 
@@ -1264,6 +1318,43 @@ func generateModuleContextMap(tool string, pkg *schema.Package) (map[string]*mod
 	return modules, infos[pkg], nil
 }
 
+// genGradleProject generates gradle files
+func genGradleProject(pkg *schema.Package, packageName string, packageReferences map[string]string, files fs) error {
+	genSettingsFile, err := genSettingsFile(pkg, packageName, packageReferences)
+	if err != nil {
+		return err
+	}
+	files.add("settings.gradle", genSettingsFile)
+	genBuildFile, err := genBuildFile(pkg, packageName, packageReferences)
+	if err != nil {
+		return err
+	}
+	files.add(pkg.Name+"/build.gradle", genBuildFile)
+	return nil
+}
+
+// genSettingsFile emits settings.gradle
+func genSettingsFile(pkg *schema.Package, packageName string, packageReferences map[string]string) ([]byte, error) {
+	w := &bytes.Buffer{}
+	err := javaSettingsFileTemplate.Execute(w, javaSettingsFileTemplateContext{
+		Package: pkg,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
+// genBuildFile emits build.gradle
+func genBuildFile(pkg *schema.Package, packageName string, packageReferences map[string]string) ([]byte, error) {
+	w := &bytes.Buffer{}
+	err := javaBuildFileTemplate.Execute(w, javaBuildFileTemplateContext{})
+	if err != nil {
+		return nil, err
+	}
+	return w.Bytes(), nil
+}
+
 // LanguageResources returns a map of resources that can be used by downstream codegen. The map
 // key is the resource schema token.
 func LanguageResources(tool string, pkg *schema.Package) (map[string]LanguageResource, error) {
@@ -1291,12 +1382,12 @@ func LanguageResources(tool string, pkg *schema.Package) (map[string]LanguageRes
 }
 
 func GeneratePackage(tool string, pkg *schema.Package, extraFiles map[string][]byte) (map[string][]byte, error) {
-	modules, _, err := generateModuleContextMap(tool, pkg)
+	modules, info, err := generateModuleContextMap(tool, pkg)
 	if err != nil {
 		return nil, err
 	}
 
-	//className := "io.pulumi." + packageName(info.Packages, pkg.Name)
+	className := "io.pulumi." + packageName(info.Packages, pkg.Name)
 
 	// Generate each module.
 	files := fs{}
@@ -1310,7 +1401,9 @@ func GeneratePackage(tool string, pkg *schema.Package, extraFiles map[string][]b
 		}
 	}
 
-	// TODO generate gradle project
-
+	// Finally emit the package metadata.
+	if err := genGradleProject(pkg, className, info.PackageReferences, files); err != nil {
+		return nil, err
+	}
 	return files, nil
 }
