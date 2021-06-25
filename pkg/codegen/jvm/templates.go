@@ -64,6 +64,7 @@ repositories {
 
 dependencies {
   testImplementation("junit:junit:4.13.1")
+  implementation("com.google.code.findbugs:jsr305:3.0.2")
   implementation files("../../jvm-mocks/lib/build/libs/lib.jar")
 }`
 
