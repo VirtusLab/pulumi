@@ -128,7 +128,7 @@ func (mod *modContext) tokenToPackage(tok string, qualifier string) string {
 	components := strings.Split(tok, ":")
 	contract.Assertf(len(components) == 3, "malformed token %v", tok)
 
-	pkg, pkgName := "io.pulumi"+packageName(mod.packages, components[0]), mod.pkg.TokenToModule(tok)
+	pkg, pkgName := "io.pulumi."+packageName(mod.packages, components[0]), mod.pkg.TokenToModule(tok)
 
 	// TODO: check if k8s compat mode
 
@@ -177,7 +177,21 @@ func (mod *modContext) typeName(t *schema.ObjectType, state, input, args bool) s
 	return name
 }
 
-var pulumiImports = []string{}
+var pulumiImports = []string{
+	"java.util.Optional",
+	"java.util.List",
+}
+
+const basePackage = "io.pulumi"
+
+const providerResource = basePackage + ".ProviderResource"
+const componentResource = basePackage + ".ComponentResource"
+const customResource = basePackage + ".CustomResource"
+
+const resourceArgs = ".ResourceArgs"
+
+const customResourceOptions = basePackage + ".CustomResourceOptions"
+const componentResourceOptions = basePackage + ".ComponentResourceOptions"
 
 func (mod *modContext) typeString(t schema.Type, qualifier string, input, state, wrapInput, args, requireInitializers, optional bool) string {
 	var typ string
@@ -191,7 +205,7 @@ func (mod *modContext) typeString(t schema.Type, qualifier string, input, state,
 		switch {
 		case wrapInput:
 			// TODO: need to fix types that we use internally
-			listFmt, optional = "InputList<%v>", false
+			listFmt = "io.pulumi.InputList<%v>"
 		case requireInitializers:
 			listFmt = "List<%v>"
 		default:
@@ -305,11 +319,11 @@ func (mod *modContext) typeString(t schema.Type, qualifier string, input, state,
 	default:
 		switch t {
 		case schema.BoolType:
-			typ = "boolean"
+			typ = "Boolean"
 		case schema.IntType:
-			typ = "int"
+			typ = "Integer"
 		case schema.NumberType:
-			typ = "double"
+			typ = "Double"
 		case schema.StringType:
 			typ = "String"
 		case schema.ArchiveType:
@@ -329,7 +343,7 @@ func (mod *modContext) typeString(t schema.Type, qualifier string, input, state,
 	}
 
 	if wrapInput {
-		typ = fmt.Sprintf("Input<%s>", typ)
+		typ = fmt.Sprintf("io.pulumi.Input<%s>", typ)
 	}
 	if optional {
 		typ = fmt.Sprintf("Optional<%s>", typ)
@@ -478,7 +492,7 @@ func printDeprecatedAttribute(w io.Writer, deprecationMessage, indent string) {
 func (pt *plainType) genInputProperty(w io.Writer, prop *schema.Property, inputTypeString, indent string) error {
 	argsType := pt.args && !prop.IsPlain
 	propertyName := pt.mod.propertyName(prop)
-	propertyType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, false, !prop.IsRequired)
+	propertyType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, false, false)
 	backingFieldType := pt.mod.typeString(prop.Type, pt.propertyTypeQualifier, true, pt.state, argsType, argsType, false, true)
 	backingFieldName := propertyName
 	defaultValue := "Optional.empty()"
@@ -507,6 +521,21 @@ func (pt *plainType) genInputProperty(w io.Writer, prop *schema.Property, inputT
 	// TODO secrets, state
 
 	return nil
+}
+
+// TODO in other place
+func (mod *modContext) genUtilities() (string, error) {
+	// Strip any 'v' off of the version.
+	w := &bytes.Buffer{}
+	err := javaUtilitiesTemplate.Execute(w, javaUtilitiesTemplateContext{
+		PackageName:    mod.packageName,
+		PackageVersion: "20.0",
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return w.String(), nil
 }
 
 func (mod *modContext) genConfig(variables []*schema.Property) (string, error) {
@@ -541,30 +570,26 @@ func (mod *modContext) genConfig(variables []*schema.Property) (string, error) {
 	return w.String(), nil
 }
 
+func gradleProjectPath(packageName, fileName string) string {
+	return fmt.Sprintf("lib/src/main/java/%s/%s", path.Join(strings.Split(packageName, ".")...), fileName)
+}
+
 func (mod *modContext) gen(fs fs) error {
-	pkgComponents := strings.Split(mod.packageName, ".")
-	if len(pkgComponents) > 0 {
-		pkgComponents = pkgComponents[2:]
-	}
+	// var files []string
+	// for p := range fs {
+	// 	d := path.Dir(p)
+	// 	if d == "." {
+	// 		d = ""
+	// 	}
 
-	dir := path.Join(pkgComponents...)
-
-	var files []string
-	for p := range fs {
-		d := path.Dir(p)
-		if d == "." {
-			d = ""
-		}
-
-		if d == dir {
-			files = append(files, p)
-		}
-	}
+	// 	if d == dir {
+	// 		files = append(files, p)
+	// 	}
+	// }
 
 	addFile := func(name, contents string) {
-		p := path.Join(dir, name)
-		files = append(files, p)
-		fs.add(p, []byte(contents))
+		// files = append(files, p)
+		fs.add(gradleProjectPath(mod.packageName, name), []byte(contents))
 	}
 
 	// Ensure that the target module directory contains a README.md file.
@@ -572,15 +597,22 @@ func (mod *modContext) gen(fs fs) error {
 	if readme != "" && readme[len(readme)-1] != '\n' {
 		readme += "\n"
 	}
-	fs.add(filepath.Join(dir, "README.md"), []byte(readme))
+	addFile("README.md", readme)
 
-	if mod.mod == "config" {
+	// Utilities, config
+	switch mod.mod {
+	case "":
+		utilities, err := mod.genUtilities()
+		if err != nil {
+			return err
+		}
+		addFile("Utilities.java", utilities)
+	case "config":
 		if len(mod.pkg.Config) > 0 {
 			config, err := mod.genConfig(mod.pkg.Config)
 			if err != nil {
 				return err
 			}
-
 			addFile("Config.java", config)
 			return nil
 		}
@@ -588,24 +620,27 @@ func (mod *modContext) gen(fs fs) error {
 
 	// Resources
 	for _, r := range mod.resources {
-		imports := map[string]codegen.StringSet{}
-		mod.getImports(r, imports)
-
-		buffer := &bytes.Buffer{}
-		var additionalImports []string
-		for _, i := range imports {
-			additionalImports = append(additionalImports, i.SortedValues()...)
-		}
-		sort.Strings(additionalImports)
-		importStrings := pulumiImports
-		importStrings = append(importStrings, additionalImports...)
-		mod.genHeader(buffer, importStrings)
-
-		if err := mod.genResource(buffer, r); err != nil {
+		resource, err := mod.genResource(r)
+		if err != nil {
 			return err
 		}
+		addFile(resourceName(r)+".java", resource)
 
-		addFile(resourceName(r)+".java", buffer.String())
+		// Generate the resource args type.
+		args := &plainType{
+			mod:                   mod,
+			res:                   r,
+			name:                  resourceName(r) + "Args",
+			baseClass:             "ResourceArgs",
+			propertyTypeQualifier: "",
+			properties:            r.InputProperties,
+			args:                  true,
+		}
+		resourceArgs, err := args.genInputType(1)
+		if err != nil {
+			return err
+		}
+		addFile(resourceName(r)+"Args.java", resourceArgs)
 	}
 
 	// Functions
@@ -634,39 +669,44 @@ func (mod *modContext) gen(fs fs) error {
 			mod.genHeader(buffer, pulumiImports)
 
 			if mod.details(t).argsType {
-				if err := mod.genType(buffer, t, "Inputs", true, false, true, 1); err != nil {
+				input, err := mod.genType(t, "", true, false, true, 1)
+				if err != nil {
 					return err
 				}
+				addFile(tokenToName(t.Token)+"Args.java", input)
 			}
 			if mod.details(t).plainType {
-				if err := mod.genType(buffer, t, "Inputs", true, false, false, 1); err != nil {
+				inputArgs, err := mod.genType(t, "", true, false, false, 1)
+				if err != nil {
 					return err
 				}
+				addFile(tokenToName(t.Token)+"Args.java", inputArgs)
 			}
-			addFile(path.Join("Inputs", tokenToName(t.Token)+"Args.java"), buffer.String())
 		}
 		if mod.details(t).stateType {
 			buffer := &bytes.Buffer{}
 			mod.genHeader(buffer, pulumiImports)
 
-			if err := mod.genType(buffer, t, "Inputs", true, true, true, 1); err != nil {
+			state, err := mod.genType(t, "", true, true, true, 1)
+			if err != nil {
 				return err
 			}
-			addFile(path.Join("Inputs", tokenToName(t.Token)+"GetArgs.java"), buffer.String())
+			addFile(tokenToName(t.Token)+"GetArgs.java", state)
 		}
 		if mod.details(t).outputType {
 			buffer := &bytes.Buffer{}
 			mod.genHeader(buffer, pulumiImports)
 
-			if err := mod.genType(buffer, t, "Outputs", false, false, false, 1); err != nil {
+			output, err := mod.genType(t, "", false, false, false, 1)
+			if err != nil {
 				return err
 			}
-			addFile(path.Join("Outputs", tokenToName(t.Token)+".java"), buffer.String())
+			addFile(tokenToName(t.Token)+"output.java", output)
 		}
 	}
 
 	// Enums
-	// TOD
+	// TODO
 	for _, en := range mod.enums {
 		buffer := &bytes.Buffer{}
 		mod.genHeader(buffer, []string{})
@@ -728,7 +768,7 @@ func (mod *modContext) genEnum(w io.Writer, enum *schema.EnumType) error {
 
 }
 
-func (mod *modContext) genType(w io.Writer, obj *schema.ObjectType, propertyTypeQualifier string, input, state, args bool, level int) error {
+func (mod *modContext) genType(obj *schema.ObjectType, propertyTypeQualifier string, input, state, args bool, level int) (string, error) {
 	pt := &plainType{
 		mod:                   mod,
 		name:                  mod.typeName(obj, state, input, args),
@@ -744,14 +784,26 @@ func (mod *modContext) genType(w io.Writer, obj *schema.ObjectType, propertyType
 		if !args && mod.details(obj).plainType {
 			pt.baseClass = "InvokeArgs"
 		}
-		return pt.genInputType(w, level)
+		return pt.genInputType(level)
 	}
 
-	pt.genOutputType(w, level)
-	return nil
+	return pt.genOutputType(level)
 }
 
-func (pt *plainType) genInputType(w io.Writer, level int) error {
+func (pt *plainType) genInputType(level int) (string, error) {
+	w := &bytes.Buffer{}
+	imports := map[string]codegen.StringSet{}
+
+	var additionalImports []string
+	for _, i := range imports {
+		additionalImports = append(additionalImports, i.SortedValues()...)
+	}
+	sort.Strings(additionalImports)
+	importStrings := pulumiImports
+	importStrings = append(importStrings, additionalImports...)
+	// ##########
+	pt.mod.genHeader(w, importStrings)
+
 	indent := strings.Repeat("    ", level)
 
 	fmt.Fprintf(w, "\n")
@@ -767,7 +819,7 @@ func (pt *plainType) genInputType(w io.Writer, level int) error {
 		err := pt.genInputProperty(w, p, pt.name, indent)
 
 		if err != nil {
-			return err
+			return "", err
 		}
 		fmt.Fprintf(w, "\n")
 	}
@@ -801,10 +853,11 @@ func (pt *plainType) genInputType(w io.Writer, level int) error {
 	// Close the class.
 	fmt.Fprintf(w, "%s}\n", indent)
 
-	return nil
+	return w.String(), nil
 }
 
-func (pt *plainType) genOutputType(w io.Writer, level int) {
+func (pt *plainType) genOutputType(level int) (string, error) {
+	w := &bytes.Buffer{}
 	indent := strings.Repeat("    ", level)
 
 	fmt.Fprintf(w, "\n")
@@ -860,29 +913,47 @@ func (pt *plainType) genOutputType(w io.Writer, level int) {
 
 	// Close the class.
 	fmt.Fprintf(w, "%s}\n", indent)
+	return w.String(), nil
 }
 
-func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
-	name := resourceName(r)
+func (mod *modContext) genResource(r *schema.Resource) (string, error) {
+
+	w := &bytes.Buffer{}
+
+	// TODO:########
+	imports := map[string]codegen.StringSet{}
+	mod.getImports(r, imports)
+
+	var additionalImports []string
+	for _, i := range imports {
+		additionalImports = append(additionalImports, i.SortedValues()...)
+	}
+	sort.Strings(additionalImports)
+	importStrings := pulumiImports
+	importStrings = append(importStrings, additionalImports...)
+	// ##########
+
+	mod.genHeader(w, importStrings)
 
 	// Write the documentation comment for the resource class
 	printComment(w, codegen.FilterExamples(r.Comment, "jvm"), "    ")
 
 	// Open the class
-	className := name
-	var baseType string
-	optionsType := "CustomResourceOptions"
+	className := resourceName(r)
+	baseType := customResource
+	optionsType := customResourceOptions
 	switch {
 	case r.IsProvider:
-		baseType = "Pulumi.ProviderResource"
+		baseType = providerResource
 	case r.IsComponent:
-		baseType = "Pulumi.ComponentResource"
-		optionsType = "ComponentResourceOptions"
-	default:
-		baseType = "Pulumi.CustomResource"
+		baseType = componentResource
+		optionsType = componentResourceOptions
 	}
 
-	printDeprecatedAttribute(w, r.DeprecationMessage, "    ")
+	if r.DeprecationMessage != "" {
+		printDeprecatedAttribute(w, r.DeprecationMessage, "    ")
+	}
+
 	fmt.Fprintf(w, "    public class %s extends %s {\n", className, baseType)
 
 	var secretProps []string
@@ -891,7 +962,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 		// Write the property attribute
 		propertyName := mod.propertyName(prop)
 		required := prop.IsRequired
-		propertyType := mod.typeString(prop.Type, "Outputs", false, false, false, false, false, !required)
+		propertyType := mod.typeString(prop.Type, "", false, false, false, false, false, !required)
 
 		// Workaround the fact that provider inputs come back as strings.
 		if r.IsProvider && !schema.IsPrimitiveType(prop.Type) {
@@ -906,7 +977,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 		}
 
 		printComment(w, prop.Comment, "    "+"    ")
-		fmt.Fprintf(w, "        public Output<%s> %s;", propertyType, propertyName)
+		fmt.Fprintf(w, "        public io.pulumi.Output<%s> %s;", propertyType, propertyName)
 		fmt.Fprintf(w, "\n")
 	}
 	if len(r.Properties) > 0 {
@@ -947,11 +1018,11 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 
 	fmt.Fprintf(w, "        */\n")
 
-	fmt.Fprintf(w, "        public %s(string name, %s args, Optional<%s> options) {\n", className, argsType, optionsType)
+	fmt.Fprintf(w, "        public %s(String name, %s args, Optional<%s> options) {\n", className, argsType, optionsType)
 	if r.IsComponent {
-		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options, \"\"), true);\n", tok, argsOverride)
+		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options.get(), Optional.of(new io.pulumi.Input<String>(\"\"))), true);\n", tok, argsOverride)
 	} else {
-		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options, \"\"));\n", tok, argsOverride)
+		fmt.Fprintf(w, "            super(\"%s\", name, %s, makeResourceOptions(options.get(), Optional.of(new io.pulumi.Input<String>(\"\"))));\n", tok, argsOverride)
 	}
 	fmt.Fprintf(w, "        }\n")
 	// TODO dictionary constructor
@@ -967,7 +1038,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 			if prop.ConstValue != nil {
 				v, err := primitiveValue(prop.ConstValue)
 				if err != nil {
-					return err
+					return "", err
 				}
 				fmt.Fprintf(w, "        args.%s = %s;\n", mod.propertyName(prop), v)
 			}
@@ -978,9 +1049,9 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 
 	// Write the method that will calculate the resource options.
 	fmt.Fprintf(w, "\n")
-	fmt.Fprintf(w, "        private static %s makeResourceOptions(%s options, Optional<Input<String>> id) {\n", optionsType, optionsType)
+	fmt.Fprintf(w, "        private static %s makeResourceOptions(%s options, Optional<io.pulumi.Input<String>> id) {\n", optionsType, optionsType)
 	fmt.Fprintf(w, "            %s defaultOptions = new %s();\n", optionsType, optionsType)
-	fmt.Fprintf(w, "            defaultOptions.Verion = Utilities.Version;\n")
+	fmt.Fprintf(w, "            defaultOptions.Version = Utilities.Version;\n")
 	if len(r.Aliases) > 0 {
 		// TODO aliases
 	}
@@ -995,20 +1066,7 @@ func (mod *modContext) genResource(w io.Writer, r *schema.Resource) error {
 	// Close the class
 	fmt.Fprintf(w, "    }\n")
 
-	// Generate the resource args type.
-	args := &plainType{
-		mod:                   mod,
-		res:                   r,
-		name:                  name + "Args",
-		baseClass:             "ResourceArgs",
-		propertyTypeQualifier: "Inputs",
-		properties:            r.InputProperties,
-		args:                  true,
-	}
-	if err := args.genInputType(w, 1); err != nil {
-		return err
-	}
-	return nil
+	return w.String(), nil
 }
 
 func primitiveValue(value interface{}) (string, error) {
@@ -1037,7 +1095,7 @@ func primitiveValue(value interface{}) (string, error) {
 }
 
 func printComment(w io.Writer, comment string, indent string) {
-	// TODO in java style
+	// TODO in javadoc style
 	lines := strings.Split(comment, "\n")
 	for len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
@@ -1329,7 +1387,7 @@ func genGradleProject(pkg *schema.Package, packageName string, packageReferences
 	if err != nil {
 		return err
 	}
-	files.add(pkg.Name+"/build.gradle", genBuildFile)
+	files.add("lib/build.gradle", genBuildFile)
 	return nil
 }
 
