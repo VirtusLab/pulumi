@@ -143,7 +143,7 @@ func tokenToName(tok string) string {
 }
 
 // Get the module in which token should reside with additional qualier? TODO??
-func (mod *modContext) tokenToPackage(tok string, qualifier string) string {
+func (mod *modContext) tokenToPackage(tok string) string {
 	components := strings.Split(tok, ":")
 	contract.Assertf(len(components) == 3, "malformed token %v", tok)
 
@@ -153,9 +153,6 @@ func (mod *modContext) tokenToPackage(tok string, qualifier string) string {
 	typ := pkg
 	if pkgName != "" {
 		typ += "." + packageName(mod.packages, pkgName)
-	}
-	if qualifier != "" {
-		typ += "." + qualifier
 	}
 
 	return typ
@@ -200,7 +197,7 @@ func (mod *modContext) typeString(t schema.Type) string {
 	var typ string
 	switch t := t.(type) {
 	case *schema.EnumType:
-		typ = fmt.Sprintf("%s.%s", mod.tokenToPackage(t.Token, ""), tokenToName(t.Token))
+		typ = fmt.Sprintf("%s.%s", mod.tokenToPackage(t.Token), tokenToName(t.Token))
 	case *schema.ArrayType:
 		typ = fmt.Sprintf("%s<%s>", listType, mod.typeString(t.ElementType))
 	case *schema.MapType:
@@ -222,11 +219,7 @@ func (mod *modContext) typeString(t schema.Type) string {
 				compatibility: info.Compatibility,
 			}
 		}
-		qualifier := ""
-		typ = namingCtx.tokenToPackage(t.Token, qualifier)
-		if (typ == namingCtx.packageName && qualifier == "") || typ == namingCtx.packageName+"."+qualifier {
-			typ = qualifier
-		}
+		typ = namingCtx.tokenToPackage(t.Token)
 
 		if typ != "" {
 			typ += "."
@@ -236,7 +229,7 @@ func (mod *modContext) typeString(t schema.Type) string {
 		// ######
 	case *schema.ResourceType:
 		if isProvider(t) {
-			typ = fmt.Sprintf("%s.%s", mod.tokenToPackage(t.Token, ""), tokenToName(t.Token))
+			typ = fmt.Sprintf("%s.%s", mod.tokenToPackage(t.Token), tokenToName(t.Token))
 		} else {
 			namingCtx := mod
 			if t.Resource != nil && t.Resource.Package != mod.pkg {
@@ -253,7 +246,7 @@ func (mod *modContext) typeString(t schema.Type) string {
 					compatibility: info.Compatibility,
 				}
 			}
-			typ = namingCtx.tokenToPackage(t.Token, "")
+			typ = namingCtx.tokenToPackage(t.Token)
 			if typ != "" {
 				typ += "."
 			}
@@ -265,7 +258,7 @@ func (mod *modContext) typeString(t schema.Type) string {
 		}
 
 		typ = tokenToName(t.Token)
-		if pkg := mod.tokenToPackage(t.Token, ""); pkg != mod.packageName {
+		if pkg := mod.tokenToPackage(t.Token); pkg != mod.packageName {
 			typ = pkg + "." + typ
 		}
 	case *schema.UnionType:
