@@ -1,13 +1,15 @@
 package io.pulumi.serialization;
 
-public class InputAttribute {
-        public String name;
-        public boolean isRequired;
-        public boolean json;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-        public InputAttribute(String name, boolean required, boolean json) {
-            this.name = name;
-            this.isRequired = required;
-            this.json = json;
-        }
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.FIELD)
+public @interface InputAttribute {
+//    String name();
+   boolean isRequired();
+//    boolean json();
 }
+

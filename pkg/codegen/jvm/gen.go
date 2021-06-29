@@ -192,6 +192,7 @@ const listImplementationFactory = "com.google.common.collect.ImmutableList.of"
 const optionalFactory = "java.util.Optional.of"
 
 const nullableAnnot = "javax.annotation.Nullable"
+const inputAnnot = "@io.pulumi.serialization.InputAttribute"
 
 func (mod *modContext) typeString(t schema.Type) string {
 	var typ string
@@ -478,11 +479,19 @@ func (mod *modContext) genInputProperty(pt *plainType, prop *schema.Property, in
 		}
 	}
 
+	var isRequiredString string
+	if prop.IsRequired {
+		isRequiredString = "true"
+	} else {
+		isRequiredString = "false"
+	}
+
 	if prop.Comment != "" {
 		fmt.Fprintf(w, "\n")
 		printComment(w, prop.Comment, indent)
 	}
 	printDeprecatedAttribute(w, prop.DeprecationMessage, indent)
+	fmt.Fprintf(w, "%s%s(isRequired=%s)\n", indent, inputAnnot, isRequiredString)
 	fmt.Fprintf(w, "%sprivate %s %s = %s;\n", indent, backingFieldType, backingFieldName, defaultValue)
 	fmt.Fprintf(w, "%spublic %s get%s() {\n", indent, propertyType, title(propertyName))
 	fmt.Fprintf(w, "%s   return %s.isPresent() ? %s.get() : null;\n", indent, backingFieldName, backingFieldName)
