@@ -1,8 +1,11 @@
 package io.pulumi.resources;
 
+import io.pulumi.core.internal.Copyable;
+
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class Resources {
     private Resources() {
@@ -26,6 +29,9 @@ public class Resources {
         return list;
     }
 
+    /**
+     * @return a shallow copy of the {@code original}
+     */
     protected static <T> List<T> copyNullableList(@Nullable List<T> original) {
         if (original == null) {
             return null;
@@ -33,4 +39,10 @@ public class Resources {
         return List.copyOf(original);
     }
 
+    protected static <T extends Copyable<T>> T copyNullable(@Nullable T original) {
+        if (original == null) {
+            return null;
+        }
+        return original.copy();
+    }
 }

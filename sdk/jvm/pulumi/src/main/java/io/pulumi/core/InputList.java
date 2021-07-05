@@ -1,10 +1,9 @@
 package io.pulumi.core;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Spliterator;
-import java.util.function.Consumer;
 
 public final class InputList<T> extends Input<List<T>> implements Iterable<T> {
     public InputList() {
@@ -15,27 +14,33 @@ public final class InputList<T> extends Input<List<T>> implements Iterable<T> {
         super(values);
     }
 
-    public InputList<T> copy() {
-        return new InputList<>(this.outputValue.copy());
-    }
-
     public InputList<T> concat(InputList<T> other) {
         return new InputList<>(Outputs.internalConcat(this.outputValue, other.outputValue));
     }
 
     @Nonnull
     @Override
-    public Iterator<T> iterator() {
-        return this.toOutput().internalGetValueAsync().join().iterator(); // TODO: how do we make async iterator?
-    }
+    public Iterator<T> iterator() { // TODO: how do we make async iterator?
+        return new Iterator<>() {
+            @Nullable
+            private Iterator<T> joined;
 
-    @Override
-    public void forEach(Consumer<? super T> action) {
-        Iterable.super.forEach(action);
-    }
+            private Iterator<T> getOrJoin() {
+                if (this.joined == null) {
+                    this.joined = InputList.this.toOutput().internalGetValueAsync().join().iterator();
+                }
+                return this.joined;
+            }
 
-    @Override
-    public Spliterator<T> spliterator() {
-        return Iterable.super.spliterator();
+            @Override
+            public boolean hasNext() {
+                return getOrJoin().hasNext();
+            }
+
+            @Override
+            public T next() {
+                return getOrJoin().next();
+            }
+        };
     }
 }

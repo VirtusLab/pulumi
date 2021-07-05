@@ -1,11 +1,16 @@
 package io.pulumi.core;
 
+import io.grpc.Internal;
+import io.pulumi.core.internal.Copyable;
+import io.pulumi.core.internal.OutputData;
+
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 @ParametersAreNonnullByDefault
-public class Input<T> {
+public class Input<T> implements Copyable<Input<T>> {
     protected final Output<T> outputValue;
 
     /* package */ Input(Output<T> outputValue) {
@@ -19,6 +24,11 @@ public class Input<T> {
 
     public Output<T> toOutput() {
         return outputValue.copy();
+    }
+
+    @Internal
+    public CompletableFuture<T> internalGetValueAsync() {
+        return this.outputValue.internalGetValueAsync();
     }
 
     // TODO

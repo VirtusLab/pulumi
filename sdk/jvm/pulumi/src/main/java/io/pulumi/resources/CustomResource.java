@@ -4,7 +4,6 @@ import io.pulumi.core.Output;
 import io.pulumi.core.Outputs;
 
 import javax.annotation.Nullable;
-import java.util.function.Supplier;
 
 public class CustomResource extends Resource {
     @Nullable
@@ -27,7 +26,7 @@ public class CustomResource extends Resource {
     ) {
         super(type, name, true,
                 args == null ? ResourceArgs.Empty : args,
-                options == null ? CustomResourceOptions.EMPTY : options,
+                options == null ? CustomResourceOptions.Empty : options,
                 false, dependency);
     }
 

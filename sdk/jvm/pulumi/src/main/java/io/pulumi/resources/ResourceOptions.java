@@ -152,13 +152,13 @@ public abstract class ResourceOptions {
         return Optional.ofNullable(urn);
     }
 
-    protected static void mergeNormalOptions(ResourceOptions options1, ResourceOptions options2) {
+    protected static <T extends ResourceOptions> T mergeSharedOptions(T options1, T options2) {
         Objects.requireNonNull(options1);
         Objects.requireNonNull(options2);
 
         options1.id = options2.id == null ? options1.id : options2.id;
         options1.parent = options2.parent == null ? options1.parent : options2.parent;
-        options1.protect = options2.protect; // TODO: is this correct, do we need more logic?
+        options1.protect = options1.protect || options2.protect;
         options1.urn = options2.urn == null ? options1.urn : options2.urn;
         options1.version = options2.version == null ? options1.version : options2.version;
         options1.provider = options2.provider == null ? options1.provider : options2.provider;
@@ -169,5 +169,7 @@ public abstract class ResourceOptions {
         options1.aliases = mergeNullableList(options1.aliases, options2.aliases);
 
         options1.dependsOn = options1.getDependsOn().concat(options2.getDependsOn());
+
+        return options1;
     }
 }

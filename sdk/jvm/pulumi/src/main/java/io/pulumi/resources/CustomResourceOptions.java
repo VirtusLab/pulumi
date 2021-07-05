@@ -3,19 +3,20 @@ package io.pulumi.resources;
 import io.pulumi.core.Alias;
 import io.pulumi.core.Input;
 import io.pulumi.core.InputList;
+import io.pulumi.core.internal.Copyable;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-import static io.pulumi.resources.Resources.copyNullableList;
-import static io.pulumi.resources.Resources.mergeNullableList;
+import static io.pulumi.resources.Resources.*;
+import static io.pulumi.resources.Resources.copyNullable;
 
 /**
  * A bag of optional settings that control a @see {@link ComponentResource} behavior.
  */
-public final class CustomResourceOptions extends ResourceOptions {
-    public static final CustomResourceOptions EMPTY = new CustomResourceOptions();
+public final class CustomResourceOptions extends ResourceOptions implements Copyable<CustomResourceOptions> {
+    public static final CustomResourceOptions Empty = new CustomResourceOptions();
 
     private boolean deleteBeforeReplace;
     @Nullable
@@ -77,29 +78,21 @@ public final class CustomResourceOptions extends ResourceOptions {
     }
 
     public CustomResourceOptions copy() {
-        return copy(this);
-    }
-
-    public static CustomResourceOptions copy(@Nullable CustomResourceOptions options) {
-        if (options == null) {
-            return EMPTY;
-        }
-
         return new CustomResourceOptions(
-                options.id,
-                options.parent,
-                options.dependsOn.copy(),
-                options.protect,
-                copyNullableList(options.ignoreChanges),
-                options.version,
-                options.provider,
-                options.getCustomTimeouts().map(CustomTimeouts::copy).orElse(null),
-                copyNullableList(options.resourceTransformations),
-                copyNullableList(options.aliases),
-                options.urn,
-                options.deleteBeforeReplace,
-                copyNullableList(options.additionalSecretOutputs),
-                options.importId
+                this.id,
+                this.parent,
+                copyNullable(this.dependsOn),
+                this.protect,
+                copyNullableList(this.ignoreChanges),
+                this.version,
+                this.provider,
+                copyNullable(this.customTimeouts),
+                copyNullableList(this.resourceTransformations),
+                copyNullableList(this.aliases),
+                this.urn,
+                this.deleteBeforeReplace,
+                copyNullableList(this.additionalSecretOutputs),
+                this.importId
         );
     }
 
@@ -120,13 +113,13 @@ public final class CustomResourceOptions extends ResourceOptions {
             @Nullable CustomResourceOptions options1,
             @Nullable CustomResourceOptions options2
     ) {
-        options1 = options1 != null ? copy(options1) : EMPTY;
-        options2 = options2 != null ? copy(options2) : EMPTY;
+        options1 = options1 != null ? options1.copy() : Empty;
+        options2 = options2 != null ? options2.copy() : Empty;
 
         // first, merge all the normal option values over
-        mergeNormalOptions(options1, options2);
+        options1 = mergeSharedOptions(options1, options2);
 
-        options1.deleteBeforeReplace = options2.deleteBeforeReplace; // TODO: is this correct, do we need more logic?
+        options1.deleteBeforeReplace = options1.deleteBeforeReplace || options2.deleteBeforeReplace;
         options1.importId = options2.importId == null ? options1.importId : options2.importId;
 
         options1.additionalSecretOutputs = mergeNullableList(options1.additionalSecretOutputs, options2.additionalSecretOutputs);

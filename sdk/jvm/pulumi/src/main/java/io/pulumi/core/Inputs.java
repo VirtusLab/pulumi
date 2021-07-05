@@ -1,5 +1,7 @@
 package io.pulumi.core;
 
+import io.pulumi.core.internal.Copyable;
+
 import javax.annotation.ParametersAreNonnullByDefault;
 
 /**

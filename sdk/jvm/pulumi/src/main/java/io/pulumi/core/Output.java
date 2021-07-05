@@ -1,6 +1,7 @@
 package io.pulumi.core;
 
 import io.grpc.Internal;
+import io.pulumi.core.internal.Copyable;
 import io.pulumi.core.internal.OutputData;
 import io.pulumi.core.internal.UntypedOutput;
 import io.pulumi.resources.Resource;
@@ -11,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 @ParametersAreNonnullByDefault
-public class Output<T> implements UntypedOutput {
+public class Output<T> implements UntypedOutput, Copyable<Output<T>> {
     private final CompletableFuture<OutputData<T>> dataFuture;
 
     /* package */ Output(CompletableFuture<OutputData<T>> dataFuture) {
@@ -76,7 +77,7 @@ public class Output<T> implements UntypedOutput {
     /**
      * @return true if the given output is empty (null)
      */
-    public CompletableFuture<Boolean> isEmpty() {
+    public CompletableFuture<Boolean> isEmptyAsync() {
         return this.dataFuture.thenApply(OutputData::isEmpty);
     }
 

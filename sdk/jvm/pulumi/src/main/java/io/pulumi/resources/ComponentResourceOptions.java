@@ -3,18 +3,18 @@ package io.pulumi.resources;
 import io.pulumi.core.Alias;
 import io.pulumi.core.Input;
 import io.pulumi.core.InputList;
+import io.pulumi.core.internal.Copyable;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
-import static io.pulumi.resources.Resources.copyNullableList;
-import static io.pulumi.resources.Resources.mergeNullableList;
+import static io.pulumi.resources.Resources.*;
 
 /**
  * A bag of optional settings that control a @see {@link ComponentResource} behavior.
  */
-public final class ComponentResourceOptions extends ResourceOptions {
-    public static final ComponentResourceOptions EMPTY = new ComponentResourceOptions();
+public final class ComponentResourceOptions extends ResourceOptions implements Copyable<ComponentResourceOptions> {
+    public static final ComponentResourceOptions Empty = new ComponentResourceOptions();
 
     @Nullable
     private List<ProviderResource> providers;
@@ -48,26 +48,18 @@ public final class ComponentResourceOptions extends ResourceOptions {
     }
 
     public ComponentResourceOptions copy() {
-        return copy(this);
-    }
-
-    public static ComponentResourceOptions copy(@Nullable ComponentResourceOptions options) {
-        if (options == null) {
-            return EMPTY;
-        }
-
         return new ComponentResourceOptions(
-                options.id,
-                options.parent,
-                options.getDependsOn().copy(),
-                options.protect,
-                copyNullableList(options.ignoreChanges),
-                options.version,
-                options.getCustomTimeouts().map(CustomTimeouts::copy).orElse(null),
-                copyNullableList(options.resourceTransformations),
-                copyNullableList(options.aliases),
-                options.urn,
-                copyNullableList(options.providers) // TODO: should we also invoke copy() on the items?
+                this.id,
+                this.parent,
+                this.getDependsOn().copy(),
+                this.protect,
+                copyNullableList(this.ignoreChanges),
+                this.version,
+                copyNullable(this.customTimeouts),
+                copyNullableList(this.resourceTransformations),
+                copyNullableList(this.aliases),
+                this.urn,
+                copyNullableList(this.providers) // TODO: should we also invoke copy() on the items?
         );
     }
 
@@ -89,8 +81,8 @@ public final class ComponentResourceOptions extends ResourceOptions {
             @Nullable ComponentResourceOptions options1,
             @Nullable ComponentResourceOptions options2
     ) {
-        options1 = options1 != null ? copy(options1) : EMPTY;
-        options2 = options2 != null ? copy(options2) : EMPTY;
+        options1 = options1 != null ? options1.copy() : Empty;
+        options2 = options2 != null ? options2.copy() : Empty;
 
         if (options1.provider != null) {
             throw new IllegalStateException("unexpected non-null 'provider', should use only 'providers'");
@@ -100,7 +92,7 @@ public final class ComponentResourceOptions extends ResourceOptions {
         }
 
         // first, merge all the normal option values over
-        mergeNormalOptions(options1, options2);
+        options1 = mergeSharedOptions(options1, options2);
 
         options1.providers = mergeNullableList(options1.providers, options2.providers);
 

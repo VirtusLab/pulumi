@@ -2,6 +2,7 @@ package io.pulumi.core;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.grpc.Internal;
 import io.pulumi.core.Tuples.*;
 import io.pulumi.core.internal.OutputData;
 import io.pulumi.resources.Resource;
@@ -195,8 +196,10 @@ public class Outputs {
         return allInputs(inputs).apply(objs -> String.format(formattableString, objs.toArray()));
     }
 
-    /* package */
+    @Internal
     static <T> Output<List<T>> internalConcat(Output<List<T>> values1, Output<List<T>> values2) {
+        Objects.requireNonNull(values1);
+        Objects.requireNonNull(values2);
         return Outputs.tuple(values1, values2).apply(
                 t -> Stream
                         .concat(t.t1.stream(), t.t2.stream())
