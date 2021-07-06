@@ -83,7 +83,7 @@ public abstract class ResourceOptions {
      * Optional additional explicit dependencies on other resources.
      */
     public InputList<Resource> getDependsOn() {
-        return this.dependsOn == null ? new InputList<>() : this.dependsOn;
+        return this.dependsOn == null ? InputList.empty() : this.dependsOn;
     }
 
     /**

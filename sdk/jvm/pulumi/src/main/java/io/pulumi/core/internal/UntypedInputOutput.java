@@ -11,15 +11,16 @@ import java.util.concurrent.CompletableFuture;
  * as there is no reasonable way to write algorithms over heterogeneous instantiations of
  * generic types.
  */
-public interface UntypedOutput {
+@Internal
+interface UntypedInputOutput {
     @Internal
     CompletableFuture<Set<Resource>> internalGetResourcesUntypedAsync();
 
     /**
      * Returns an @see {@link io.pulumi.core.Output} unsafe equivalent to this,
-     * except with our @see {@link OutputData#getValue()} casted to an Object.
+     * except with our @see {@link InputOutputData#getValue()} casted to an Object.
      */
     @SuppressWarnings("rawtypes")
     @Internal
-    CompletableFuture<OutputData> internalGetDataUntypedAsync();
+    CompletableFuture<InputOutputData> internalGetDataUntypedAsync();
 }

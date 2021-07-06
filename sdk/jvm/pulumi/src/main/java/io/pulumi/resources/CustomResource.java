@@ -1,7 +1,6 @@
 package io.pulumi.resources;
 
 import io.pulumi.core.Output;
-import io.pulumi.core.Outputs;
 
 import javax.annotation.Nullable;
 
@@ -31,7 +30,7 @@ public class CustomResource extends Resource {
     }
 
     public Output<String> getId() {
-        return this.id == null ? Outputs.internalCreateEmpty() : this.id;
+        return this.id == null ? Output.empty() : this.id;
     }
 
     protected void setId(@Nullable Output<String> id) {

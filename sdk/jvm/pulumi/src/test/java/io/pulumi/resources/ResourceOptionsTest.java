@@ -3,7 +3,7 @@ package io.pulumi.resources;
 import io.pulumi.core.Alias;
 import io.pulumi.core.Input;
 import io.pulumi.core.InputList;
-import io.pulumi.core.Inputs;
+import io.pulumi.core.internal.TypedInputOutput;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -21,7 +21,7 @@ class ResourceOptionsTest {
     private static Stream<Arguments> testMergeSharedOptions() {
         return Stream.of(
                 arguments(new TestResourceOptions(), new TestResourceOptions(), new TestResourceOptions(
-                        null, null, new InputList<>(), false, null,
+                        null, null, InputList.empty(), false, null,
                         null, null, null, null, null, null
                 )),
                 arguments(new TestResourceOptions(
@@ -38,9 +38,9 @@ class ResourceOptionsTest {
                                 null
                         ),
                         new TestResourceOptions(
-                                Inputs.create("id"),
+                                Input.of("id"),
                                 null,
-                                new InputList<>(),
+                                InputList.empty(),
                                 true,
                                 List.of("b"),
                                 "test",
@@ -51,9 +51,9 @@ class ResourceOptionsTest {
                                 "urn"
                         ),
                         new TestResourceOptions(
-                                Inputs.create("id"),
+                                Input.of("id"),
                                 null,
-                                new InputList<>(),
+                                InputList.empty(),
                                 true,
                                 List.of("a", "b"),
                                 "test",
@@ -71,8 +71,8 @@ class ResourceOptionsTest {
     @MethodSource
     void testMergeSharedOptions(ResourceOptions options1, ResourceOptions options2, ResourceOptions expected) {
         options1 = ResourceOptions.mergeSharedOptions(options1, options2);
-        assertThat(options1.id != null ? options1.id.internalGetValueAsync().join() : null)
-                .isEqualTo(expected.id != null ? expected.id.internalGetValueAsync().join() : null); // FIXME
+        assertThat(options1.id != null ? ((TypedInputOutput<String>) options1.id).internalGetValueAsync().join() : null)
+                .isEqualTo(expected.id != null ? ((TypedInputOutput<String>) expected.id).internalGetValueAsync().join() : null); // FIXME
         assertThat(options1.parent).isEqualTo(expected.parent);
         assertThatNullable(options1.dependsOn).containsAll(expected.dependsOn);
         assertThat(options1.protect).isEqualTo(expected.protect);

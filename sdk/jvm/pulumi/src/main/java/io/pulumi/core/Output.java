@@ -1,125 +1,27 @@
 package io.pulumi.core;
 
-import io.grpc.Internal;
-import io.pulumi.core.internal.Copyable;
-import io.pulumi.core.internal.OutputData;
-import io.pulumi.core.internal.UntypedOutput;
-import io.pulumi.resources.Resource;
+import com.google.common.collect.Lists;
+import io.pulumi.core.internal.InputOutputData;
+import io.pulumi.core.internal.InputOutputImpl;
 
-import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Set;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
-@ParametersAreNonnullByDefault
-public class Output<T> implements UntypedOutput, Copyable<Output<T>> {
-    private final CompletableFuture<OutputData<T>> dataFuture;
+import static io.pulumi.core.InputImpl.ZeroIn;
+import static io.pulumi.core.OutputDefault.ZeroOut;
+import static io.pulumi.core.internal.InputOutputData.internalAllHelperAsync;
 
-    /* package */ Output(CompletableFuture<OutputData<T>> dataFuture) {
-        this.dataFuture = dataFuture;
-
-        /* TODO: wut?!
-        if (Deployment.TryGetInternalInstance(out var instance))
-        {
-            instance.Runner.RegisterTask("Output<>", dataTask);
-        }*/
-    }
-
-    // TODO: needed?
-    /*
-    @Internal
-    public static <T> Output<T> internalUnknown(@Nullable T value) {
-        var outputData = CompletableFuture.completedFuture(
-                OutputData.create(ImmutableSet.of(), value, false, false));
-        return new Output<>(outputData);
-    }*/
-
-    @Internal
-    public CompletableFuture<OutputData<T>> internalGetDataAsync() {
-        return this.dataFuture;
-    }
-
-    @Internal
-    public CompletableFuture<T> internalGetValueAsync() {
-        return this.dataFuture.thenApply(OutputData::getValue);
-    }
-
-    @Override
-    @Internal
-    public CompletableFuture<Set<Resource>> internalGetResourcesUntypedAsync() {
-        return this.dataFuture.thenApply(OutputData::getResources);
-    }
-
-    @SuppressWarnings("rawtypes")
-    @Override
-    @Internal
-    public CompletableFuture<OutputData> internalGetDataUntypedAsync() {
-        return this.dataFuture.thenApply(Function.<OutputData>identity());
-    }
-
-    /* package */ Output<T> internalWithIsSecret(CompletableFuture<Boolean> isSecretFuture) {
-        return new Output<>(
-                isSecretFuture.thenCompose(
-                    secret -> this.dataFuture.thenApply(
-                        d -> d.withIsSecret(secret)
-                    )
-                )
-        );
-    }
-
-    /**
-     * @return the secret-ness status of the given output
-     */
-    public CompletableFuture<Boolean> isSecretAsync() {
-        return this.dataFuture.thenApply(OutputData::isSecret);
-    }
-
-    /**
-     * @return true if the given output is empty (null)
-     */
-    public CompletableFuture<Boolean> isEmptyAsync() {
-        return this.dataFuture.thenApply(OutputData::isEmpty);
-    }
-
-    /**
-     * Creates a shallow copy (the underlying CompletableFuture is copied) of this @see {@link Output<T>}
-     * @return a shallow copy of the @see {@link Output<T>}
-     */
-    public Output<T> copy() {
-        // we do not copy the OutputData, because it should be immutable
-        return new Output<>(this.dataFuture.copy()); // TODO: is the copy deep enough
-    }
+public interface Output<T> extends InputOutput<T, Output<T>> {
 
     /**
      * Convert @see {@link Output<T>} to @see {@link Input<T>}
+     *
      * @return an {@link Input<T>} , converted from {@link Output<T>}
      */
-    public Input<T> toInput() {
-        return Inputs.create(this);
-    }
-
-    /**
-     * @see Output#applyOutput(Function) for more details.
-     */
-    public <U> Output<U> apply(Function<T, U> func) {
-        return applyOutput(t -> Outputs.create(func.apply(t)));
-    }
-
-
-    /**
-     * @see Output#applyOutput(Function) for more details.
-     */
-    public <U> Output<U> applyFuture(Function<T, CompletableFuture<U>> func) {
-        return applyOutput(t -> Outputs.create(func.apply(t)));
-    }
-
-
-    /**
-     * @see Output#applyOutput(Function) for more details.
-     */
-    public <U> Output<U> applyInput(Function<T, Input<U>> func) {
-        return applyOutput(t -> Outputs.create(func.apply(t)));
-    }
+    Input<T> toInput();
 
     /**
      * Transforms the data of this @see {@link Output<T>} with the provided {@code func}.
@@ -137,23 +39,276 @@ public class Output<T> implements UntypedOutput, Copyable<Output<T>> {
      * </code>
      * <p/>
      * In this example, taking a dependency on d2 means a resource will depend on all the resources
-     * of d1.  It will <b>not</b> depend on the resources of v.x.y.OtherDep.
+     * of d1. It will <b>not</b> depend on the resources of v.x.y.OtherDep.
      * <p/>
      * Importantly, the Resources that d2 feels like it will depend on are the same resources
      * as d1.
      * <p/>
      * If you need have multiple @see {@link Output<T>}s and a single @see {@link Output<T>}
-     * is needed that combines both set of resources, then @see {@link Outputs#allInputs(Input[])}
-     * or {@link Outputs#tuple(Input, Input, Input)} should be used instead.
+     * is needed that combines both set of resources, then @see {@link Output#allInputs(Input[])}
+     * or {@link Output#tuple(Input, Input, Input)} should be used instead.
      * <p/>
      * This function will only be called during execution of a <code>pulumi up</code> request.
      * It will not run during <code>pulumi preview</code>
      * (as the values of resources are of course not known then).
      */
-    public <U> Output<U> applyOutput(Function<T, Output<U>> func) {
-        return new Output<>(OutputData.apply(dataFuture, func.andThen(o -> o.dataFuture)));
+    <U> Output<U> applyOutput(Function<T, Output<U>> func);
+
+    /**
+     * @see Output#applyOutput(Function) for more details.
+     */
+    default <U> Output<U> apply(Function<T, U> func) {
+        return applyOutput(t -> Output.of(func.apply(t)));
     }
 
-    // TODO
+    /**
+     * @see Output#applyOutput(Function) for more details.
+     */
+    default <U> Output<U> applyFuture(Function<T, CompletableFuture<U>> func) {
+        return applyOutput(t -> Output.of(func.apply(t)));
+    }
 
+    /**
+     * @see Output#applyOutput(Function) for more details.
+     */
+    default <U> Output<U> applyInput(Function<T, Input<U>> func) {
+        return applyOutput(t -> func.apply(t).toOutput());
+    }
+
+    // Static section -----
+
+    static <T> Output<T> of(T value) {
+        return of(CompletableFuture.completedFuture(value));
+    }
+
+    static <T> Output<T> of(CompletableFuture<T> value) {
+        return of(value, false);
+    }
+
+    static <T> Output<T> ofSecret(T value) {
+        Objects.requireNonNull(value);
+        return of(CompletableFuture.completedFuture(value), true);
+    }
+
+    private static <T> Output<T> of(CompletableFuture<T> value, boolean isSecret) {
+        Objects.requireNonNull(value);
+        return new OutputDefault<>(InputOutputData.ofAsync(value, isSecret));
+    }
+
+    static <T> Output<T> empty() {
+        return new OutputDefault<>(CompletableFuture.completedFuture(InputOutputData.empty()));
+    }
+
+    /**
+     * Combines all the @see {@link io.pulumi.core.Input<T>} values in {@code inputs} into a single @see {@link Output}
+     * with an @see {@link java.util.List<T>} containing all their underlying values.
+     * <p>
+     * If any of the {@link io.pulumi.core.Input<T>}s are not known, the final result will be not known.
+     * Similarly, if any of the {@link io.pulumi.core.Input<T>}s are secrets, then the final result will be a secret.
+     */
+    @SafeVarargs // safe because we only call List.of, that is also @SafeVarargs
+    static <T> Output<List<T>> allInputs(Input<T>... inputs) {
+        return allInputs(List.of(inputs));
+    }
+
+    /**
+     * @see Output#allInputs(Input[]) for more details.
+     */
+    static <T> Output<List<T>> allInputs(Iterable<Input<T>> inputs) {
+        return allInputs(Lists.newArrayList(inputs));
+    }
+
+    /**
+     * Combines all the @see {@link Output<T>} values in {@code outputs}
+     * into a single @see {@link Output<T>} with an @see {@link java.util.List<T>}
+     * containing all their underlying values.
+     * <p/>
+     * If any of the @see {@link Output<T>}s are not known, the final result will be not known.
+     * Similarly, if any of the @see {@link Output<T>}s are secrets, then the final result will be a secret.
+     */
+    @SafeVarargs // safe because we only call List.of, that is also @SafeVarargs
+    static <T> Output<List<T>> allOutputs(Output<T>... outputs) {
+        return allOutputs(List.of(outputs));
+    }
+
+    /**
+     * @see Output#allOutputs(Output[])  for more details.
+     */
+    static <T> Output<List<T>> allOutputs(Iterable<Output<T>> outputs) {
+        return allOutputs(Lists.newArrayList(outputs));
+    }
+
+    private static <T> Output<List<T>> allInputs(List<Input<T>> inputs) {
+        return new OutputDefault<>(
+                internalAllHelperAsync(inputs
+                        .stream()
+                        .map(input -> ((InputOutputImpl<T, Input<T>>) input).internalGetDataAsync())
+                        .collect(Collectors.toList()))
+        );
+    }
+
+    private static <T> Output<List<T>> allOutputs(List<Output<T>> outputs) {
+        return new OutputDefault<>(
+                internalAllHelperAsync(outputs
+                        .stream()
+                        .map(output -> ((InputOutputImpl<T, Output<T>>) output).internalGetDataAsync())
+                        .collect(Collectors.toList()))
+        );
+    }
+    // Tuple Overloads that take different numbers of inputs or outputs.
+
+    /**
+     * @see Output#tuple(Input, Input, Input, Input, Input, Input, Input, Input)
+     */
+    static <T1, T2> Output<Tuples.Tuple2<T1, T2>> tuple(Input<T1> item1, Input<T2> item2) {
+        return tuple(item1, item2, ZeroIn, ZeroIn, ZeroIn, ZeroIn, ZeroIn, ZeroIn).apply(v -> Tuples.of(v.t1, v.t2));
+    }
+
+    /**
+     * @see Output#tuple(Input, Input, Input, Input, Input, Input, Input, Input)
+     */
+    static <T1, T2, T3> Output<Tuples.Tuple3<T1, T2, T3>> tuple(
+            Input<T1> item1, Input<T2> item2, Input<T3> item3
+    ) {
+        return tuple(item1, item2, item3, ZeroIn, ZeroIn, ZeroIn, ZeroIn, ZeroIn).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Input, Input, Input, Input, Input, Input, Input, Input)
+     */
+    static <T1, T2, T3, T4> Output<Tuples.Tuple4<T1, T2, T3, T4>> tuple(
+            Input<T1> item1, Input<T2> item2, Input<T3> item3, Input<T4> item4
+    ) {
+        return tuple(item1, item2, item3, item4, ZeroIn, ZeroIn, ZeroIn, ZeroIn).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Input, Input, Input, Input, Input, Input, Input, Input)
+     */
+    static <T1, T2, T3, T4, T5> Output<Tuples.Tuple5<T1, T2, T3, T4, T5>> tuple(
+            Input<T1> item1, Input<T2> item2, Input<T3> item3, Input<T4> item4, Input<T5> item5
+    ) {
+        return tuple(item1, item2, item3, item4, item5, ZeroIn, ZeroIn, ZeroIn).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4, v.t5)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Input, Input, Input, Input, Input, Input, Input, Input)
+     */
+    static <T1, T2, T3, T4, T5, T6> Output<Tuples.Tuple6<T1, T2, T3, T4, T5, T6>> tuple(
+            Input<T1> item1, Input<T2> item2, Input<T3> item3, Input<T4> item4,
+            Input<T5> item5, Input<T6> item6
+    ) {
+        return tuple(item1, item2, item3, item4, item5, item6, ZeroIn, ZeroIn).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4, v.t5, v.t6)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Input, Input, Input, Input, Input, Input, Input, Input)
+     */
+    static <T1, T2, T3, T4, T5, T6, T7> Output<Tuples.Tuple7<T1, T2, T3, T4, T5, T6, T7>> tuple(
+            Input<T1> item1, Input<T2> item2, Input<T3> item3, Input<T4> item4,
+            Input<T5> item5, Input<T6> item6, Input<T7> item7
+    ) {
+        return tuple(item1, item2, item3, item4, item5, item6, item7, ZeroIn).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4, v.t5, v.t6, v.t7)
+        );
+    }
+
+    /**
+     * Combines all the @see {@link Input} values in the provided parameters and combines
+     * them all into a single tuple containing each of their underlying values.
+     * If any of the @see {@link Input}s are not known, the final result will be not known.  Similarly,
+     * if any of the @see {@link Input}s are secrets, then the final result will be a secret.
+     */
+    static <T1, T2, T3, T4, T5, T6, T7, T8> Output<Tuples.Tuple8<T1, T2, T3, T4, T5, T6, T7, T8>> tuple(
+            Input<T1> item1, Input<T2> item2, Input<T3> item3, Input<T4> item4,
+            Input<T5> item5, Input<T6> item6, Input<T7> item7, Input<T8> item8
+    ) {
+        return new OutputDefault<>(InputOutputData.tuple(item1, item2, item3, item4, item5, item6, item7, item8));
+    }
+
+    /**
+     * @see Output#tuple(Output, Output, Output, Output, Output, Output, Output, Output)
+     */
+    static <T1, T2> Output<Tuples.Tuple2<T1, T2>> tuple(Output<T1> item1, Output<T2> item2) {
+        return tuple(item1, item2, ZeroOut, ZeroOut, ZeroOut, ZeroOut, ZeroOut, ZeroOut).apply(v -> Tuples.of(v.t1, v.t2));
+    }
+
+    /**
+     * @see Output#tuple(Output, Output, Output, Output, Output, Output, Output, Output)
+     */
+    static <T1, T2, T3> Output<Tuples.Tuple3<T1, T2, T3>> tuple(
+            Output<T1> item1, Output<T2> item2, Output<T3> item3
+    ) {
+        return tuple(item1, item2, item3, ZeroOut, ZeroOut, ZeroOut, ZeroOut, ZeroOut).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Output, Output, Output, Output, Output, Output, Output, Output)
+     */
+    static <T1, T2, T3, T4> Output<Tuples.Tuple4<T1, T2, T3, T4>> tuple(
+            Output<T1> item1, Output<T2> item2, Output<T3> item3, Output<T4> item4
+    ) {
+        return tuple(item1, item2, item3, item4, ZeroOut, ZeroOut, ZeroOut, ZeroOut).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Output, Output, Output, Output, Output, Output, Output, Output)
+     */
+    static <T1, T2, T3, T4, T5> Output<Tuples.Tuple5<T1, T2, T3, T4, T5>> tuple(
+            Output<T1> item1, Output<T2> item2, Output<T3> item3, Output<T4> item4,
+            Output<T5> item5
+    ) {
+        return tuple(item1, item2, item3, item4, item5, ZeroOut, ZeroOut, ZeroOut).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4, v.t5)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Output, Output, Output, Output, Output, Output, Output, Output)
+     */
+    static <T1, T2, T3, T4, T5, T6> Output<Tuples.Tuple6<T1, T2, T3, T4, T5, T6>> tuple(
+            Output<T1> item1, Output<T2> item2, Output<T3> item3, Output<T4> item4,
+            Output<T5> item5, Output<T6> item6
+    ) {
+        return tuple(item1, item2, item3, item4, item5, item6, ZeroOut, ZeroOut).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4, v.t5, v.t6)
+        );
+    }
+
+    /**
+     * @see Output#tuple(Output, Output, Output, Output, Output, Output, Output, Output)
+     */
+    static <T1, T2, T3, T4, T5, T6, T7> Output<Tuples.Tuple7<T1, T2, T3, T4, T5, T6, T7>> tuple(
+            Output<T1> item1, Output<T2> item2, Output<T3> item3, Output<T4> item4,
+            Output<T5> item5, Output<T6> item6, Output<T7> item7
+    ) {
+        return tuple(item1, item2, item3, item4, item5, item6, item7, ZeroOut).apply(
+                v -> Tuples.of(v.t1, v.t2, v.t3, v.t4, v.t5, v.t6, v.t7)
+        );
+    }
+
+    /**
+     * Combines all the @see {@link Output} values in the provided parameters and combines
+     * them all into a single tuple containing each of their underlying values.
+     * If any of the @see {@link Output}s are not known, the final result will be not known.  Similarly,
+     * if any of the @see {@link Output}s are secrets, then the final result will be a secret.
+     */
+    static <T1, T2, T3, T4, T5, T6, T7, T8> Output<Tuples.Tuple8<T1, T2, T3, T4, T5, T6, T7, T8>> tuple(
+            Output<T1> item1, Output<T2> item2, Output<T3> item3, Output<T4> item4,
+            Output<T5> item5, Output<T6> item6, Output<T7> item7, Output<T8> item8
+    ) {
+        return new OutputDefault<>(InputOutputData.tuple(item1, item2, item3, item4, item5, item6, item7, item8));
+    }
 }

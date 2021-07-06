@@ -81,7 +81,7 @@ public final class CustomResourceOptions extends ResourceOptions implements Copy
         return new CustomResourceOptions(
                 this.id,
                 this.parent,
-                copyNullable(this.dependsOn),
+                this.getDependsOn().copy(),
                 this.protect,
                 copyNullableList(this.ignoreChanges),
                 this.version,

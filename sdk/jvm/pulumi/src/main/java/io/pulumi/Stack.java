@@ -2,7 +2,6 @@ package io.pulumi;
 
 import io.grpc.Internal;
 import io.pulumi.core.Output;
-import io.pulumi.core.Outputs;
 import io.pulumi.deployment.Deployment;
 import io.pulumi.resources.ComponentResource;
 import io.pulumi.resources.ComponentResourceOptions;
@@ -47,10 +46,11 @@ public class Stack extends ComponentResource {
     /**
      * The outputs of this stack, if the <code>init</code> callback exited normally.
      */
-    private Output<Map<String, Optional<Object>>> outputs = Outputs.create(Map.of());
+    private Output<Map<String, Optional<Object>>> outputs = Output.of(Map.of());
 
     /**
      * Create a Stack with stack resources defined in derived class constructor.
+     *
      * @param options optional stack options
      */
     public Stack(@Nullable StackOptions options) {
@@ -73,7 +73,7 @@ public class Stack extends ComponentResource {
         // Deployment.InternalInstance.Stack = this;
 
         try {
-            this.outputs = Outputs.create(runInitAsync(init));
+            this.outputs = Output.of(runInitAsync(init));
         } finally {
             this.registerOutputs(this.outputs);
         }
@@ -93,7 +93,7 @@ public class Stack extends ComponentResource {
         // TODO
 
         Map<String, Optional<Object>> dict = Map.of();
-        this.outputs = Outputs.create(dict);
+        this.outputs = Output.of(dict);
         this.registerOutputs(this.outputs);
     }
 

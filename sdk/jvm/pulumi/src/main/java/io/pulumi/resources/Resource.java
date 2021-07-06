@@ -3,7 +3,10 @@ package io.pulumi.resources;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.pulumi.Stack;
-import io.pulumi.core.*;
+import io.pulumi.core.Alias;
+import io.pulumi.core.Input;
+import io.pulumi.core.Output;
+import io.pulumi.core.Urn;
 import io.pulumi.deployment.Deployment;
 import io.pulumi.exceptions.ResourceException;
 
@@ -241,7 +244,7 @@ public class Resource {
      * Urn is the stable logical URN used to distinctly address a resource, both before and after deployments.
      */
     public Output<String> getUrn() {
-        return this.urn == null ? Outputs.internalCreateEmpty() : this.urn;
+        return this.urn == null ? Output.empty() : this.urn;
     }
 
     protected void setUrn(@Nullable Output<String> urn) {
@@ -271,13 +274,13 @@ public class Resource {
     ) {
         return alias.toOutput().applyOutput(a -> {
             if (a.getUrn().isPresent()) {
-                return Outputs.create(a.getUrn().get());
+                return Output.of(a.getUrn().get());
             }
 
-            var name = a.getName().orElse(Inputs.create(defaultName));
-            var type = a.getType().orElse(Inputs.create(defaultType));
-            var project = a.getProject().orElse(Inputs.create(Deployment.getInstance().getProjectName()));
-            var stack = a.getStack().orElse(Inputs.create(Deployment.getInstance().getStackName()));
+            var name = a.getName().orElse(Input.of(defaultName));
+            var type = a.getType().orElse(Input.of(defaultType));
+            var project = a.getProject().orElse(Input.of(Deployment.getInstance().getProjectName()));
+            var stack = a.getStack().orElse(Input.of(Deployment.getInstance().getStackName()));
 
 
             var parentCount =

@@ -48,10 +48,10 @@ public class Urn {
         } else {
             var stackName = stack == null ? Deployment.getInstance().getStackName() : stack;
             var projectName = project == null ? Deployment.getInstance().getProjectName() : project;
-            parentPrefix = Outputs.format("urn:pulumi:%s::%s::", stackName, projectName);
+            parentPrefix = OutputDefault.format("urn:pulumi:%s::%s::", stackName, projectName);
         }
 
-        return Outputs.format("%s%s::%s", parentPrefix, type, name);
+        return OutputDefault.format("%s%s::%s", parentPrefix, type, name);
     }
 
     /**
@@ -80,7 +80,7 @@ public class Urn {
         // * parentAliasName: "app"
         // * aliasName: "app-function"
         // * childAlias: "urn:pulumi:stackname::projectname::aws:s3/bucket:Bucket::app-function"
-        var aliasName = Outputs.create(childName);
+        var aliasName = Output.of(childName);
         if (childName.startsWith(parentName)) {
             aliasName = parentAlias.toOutput().apply(
                     (String parentAliasUrn) -> parentAliasUrn.substring(
@@ -88,7 +88,7 @@ public class Urn {
         }
 
         var urn = create(
-                Inputs.create(aliasName), Inputs.create(childType), null, parentAlias, null, null);
+                aliasName.toInput(), Input.of(childType), null, parentAlias, null, null);
 
         return urn.apply(Alias::create);
     }

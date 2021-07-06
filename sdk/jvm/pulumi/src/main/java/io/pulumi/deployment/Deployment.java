@@ -9,9 +9,7 @@ import com.google.gson.JsonElement;
 import io.grpc.Internal;
 import io.pulumi.Stack;
 import io.pulumi.core.Output;
-import io.pulumi.core.internal.CompletableFutures;
-import io.pulumi.core.internal.Environment;
-import io.pulumi.core.internal.Exceptions;
+import io.pulumi.core.internal.*;
 import io.pulumi.deployment.internal.*;
 import io.pulumi.exceptions.LogException;
 import io.pulumi.exceptions.ResourceException;
@@ -24,6 +22,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -130,7 +129,7 @@ public class Deployment implements DeploymentInternalInternal {
     @VisibleForTesting
     @Internal
     static Deployment internalTestDeployment(Engine engine, Monitor monitor) {
-        return internalTestDeployment( engine,  monitor, new TestOptions());
+        return internalTestDeployment(engine, monitor, new TestOptions());
     }
 
     /**
@@ -215,7 +214,7 @@ public class Deployment implements DeploymentInternalInternal {
         var logger = Logger.getLogger(clazz.getName());
         logger.setLevel(
                 Environment.getBooleanEnvironmentVariable("PULUMI_DOTNET_LOG_VERBOSE")
-                  ? Level.FINEST
+                        ? Level.FINEST
                         : Level.SEVERE
         );
         return logger;
@@ -342,7 +341,8 @@ public class Deployment implements DeploymentInternalInternal {
                 var stack = stackFactory.get();
                 // Stack doesn't call RegisterOutputs, so we register them on its behalf.
                 stack.internalRegisterPropertyOutputs();
-                registerTask(String.format("runAsync: %s, %s", stack.getType(), stack.getName()), stack.internalGetOutputs().internalGetDataAsync());
+                registerTask(String.format("runAsync: %s, %s", stack.getType(), stack.getName()),
+                        ((TypedInputOutput<Map<String, Optional<Object>>>) stack.internalGetOutputs()).internalGetDataAsync());
             } catch (Exception ex) {
                 return handleExceptionAsync(ex);
             }
@@ -353,7 +353,8 @@ public class Deployment implements DeploymentInternalInternal {
         @Override
         public CompletableFuture<Integer> runAsyncFuture(Supplier<CompletableFuture<Map<String, Optional<Object>>>> callback, @Nullable StackOptions options) {
             var stack = new Stack(callback, options);
-            registerTask(String.format("runAsyncFuture: %s, %s", stack.getType(), stack.getName()), stack.internalGetOutputs().internalGetDataAsync());
+            registerTask(String.format("runAsyncFuture: %s, %s", stack.getType(), stack.getName()),
+                    ((TypedInputOutput<Map<String, Optional<Object>>>) stack.internalGetOutputs()).internalGetDataAsync());
             return whileRunningAsync();
         }
 
@@ -602,7 +603,7 @@ public class Deployment implements DeploymentInternalInternal {
         @Internal
         ImmutableSet<String> configSecretKeys() {
             return configSecretKeys;
-        };
+        }
 
         /**
          * Sets a configuration variable.

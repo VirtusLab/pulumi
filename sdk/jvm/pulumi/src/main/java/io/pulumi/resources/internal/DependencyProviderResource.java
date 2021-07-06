@@ -1,7 +1,7 @@
 package io.pulumi.resources.internal;
 
 import com.google.common.collect.ImmutableSet;
-import io.pulumi.core.Outputs;
+import io.pulumi.core.OutputDefault;
 import io.pulumi.resources.ProviderResource;
 import io.pulumi.resources.Resource;
 import io.pulumi.resources.ResourceArgs;
@@ -24,7 +24,7 @@ public final class DependencyProviderResource extends ProviderResource {
         var id = reference.substring(lastSep + 2);
 
         ImmutableSet<Resource> resources = ImmutableSet.of(this);
-        this.setUrn(Outputs.internalCreateRaw(resources, urn, true, false));
-        this.setId(Outputs.internalCreateRaw(resources, id, true, false));
+        this.setUrn(OutputDefault.of(resources, urn));
+        this.setId(OutputDefault.of(resources, id));
     }
 }

@@ -1,21 +1,63 @@
 package io.pulumi.core;
 
+import io.pulumi.core.internal.InputOutputData;
+import io.pulumi.core.internal.TypedInputOutput;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
-public final class InputList<T> extends Input<List<T>> implements Iterable<T> {
-    public InputList() {
-        this(Outputs.create(List.of()));
+public final class InputList<T> extends InputImpl<List<T>, Input<List<T>>> implements Input<List<T>>, Iterable<T> {
+
+    protected InputList() {
+        this(List.of());
     }
 
-    private InputList(Output<List<T>> values) {
+    protected InputList(List<T> values) {
+        this(InputOutputData.ofAsync(CompletableFuture.completedFuture(values), false));
+    }
+
+    protected InputList(Input<List<T>> inputs) {
+        this(((TypedInputOutput<List<T>>) inputs).internalGetDataAsync());
+    }
+
+    protected InputList(CompletableFuture<InputOutputData<List<T>>> values) {
         super(values);
     }
 
+    protected InputList<T> newInstance(CompletableFuture<InputOutputData<List<T>>> dataFuture) {
+        return new InputList<>(dataFuture);
+    }
+
+    @Override
+    public <U> Input<U> applyInput(Function<List<T>, Input<U>> func) {
+        return new InputDefault<>(InputOutputData.apply(dataFuture, func.andThen(
+                o -> ((TypedInputOutput<U>) o).internalGetDataAsync())
+        ));
+    }
+
+    @Override
+    public InputList<T> copy() {
+        return new InputList<>(this.dataFuture.copy());
+    }
+
     public InputList<T> concat(InputList<T> other) {
-        return new InputList<>(Outputs.internalConcat(this.outputValue, other.outputValue));
+        Objects.requireNonNull(other);
+
+        return new InputList<>(
+                Input.tuple(this, other).apply(
+                        t -> Stream
+                                .concat(t.t1.stream(), t.t2.stream())
+                                .collect(Collectors.<T>toList())
+                )
+        );
     }
 
     @Nonnull
@@ -27,7 +69,7 @@ public final class InputList<T> extends Input<List<T>> implements Iterable<T> {
 
             private Iterator<T> getOrJoin() {
                 if (this.joined == null) {
-                    this.joined = InputList.this.toOutput().internalGetValueAsync().join().iterator();
+                    this.joined = InputList.this.internalGetValueAsync().join().iterator();
                 }
                 return this.joined;
             }
@@ -42,5 +84,18 @@ public final class InputList<T> extends Input<List<T>> implements Iterable<T> {
                 return getOrJoin().next();
             }
         };
+    }
+
+    public Stream<T> stream() {
+        return StreamSupport.stream(spliterator(), false);
+    }
+
+    // Static section -----
+    public static <T> InputList<T> of(List<T> values) {
+        return new InputList<>(values);
+    }
+
+    public static <T> InputList<T> empty() {
+        return new InputList<>();
     }
 }

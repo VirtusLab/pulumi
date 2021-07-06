@@ -1,7 +1,6 @@
 package io.pulumi.resources;
 
 import io.pulumi.core.Output;
-import io.pulumi.core.Outputs;
 import io.pulumi.deployment.Deployment;
 
 import javax.annotation.Nullable;
@@ -78,7 +77,7 @@ public class ComponentResource extends Resource {
 
     protected void registerOutputs(CompletableFuture<Map<String, Optional<Object>>> outputs) {
         Objects.requireNonNull(outputs);
-        registerOutputs(Outputs.create(outputs));
+        registerOutputs(Output.of(outputs));
     }
 
     protected void registerOutputs(Output<Map<String, Optional<Object>>> outputs) {
