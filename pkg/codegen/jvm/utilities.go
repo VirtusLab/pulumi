@@ -20,8 +20,6 @@ import (
 	"unicode"
 
 	"github.com/pulumi/pulumi/pkg/v3/codegen"
-
-	"github.com/pkg/errors"
 )
 
 // Title converts the input string to a title case
@@ -34,64 +32,68 @@ func Title(s string) string {
 	return string(append([]rune{unicode.ToUpper(runes[0])}, runes[1:]...))
 }
 
-// isReservedWord returns true if s is a C# reserved word as per
-// https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure#keywords
+// isReservedWord returns true if s is a java reserved word as per
+// https://docs.oracle.com/javase/tutorial/java/nutsandbolts/_keywords.html
 func isReservedWord(s string) bool {
 	switch s {
-	case "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked", "class", "const",
-		"continue", "decimal", "default", "delegate", "do", "double", "else", "enum", "event", "explicit", "extern",
-		"false", "finally", "fixed", "float", "for", "foreach", "goto", "if", "implicit", "in", "int", "interface",
-		"internal", "is", "lock", "long", "namespace", "new", "null", "object", "operator", "out", "override",
-		"params", "private", "protected", "public", "readonly", "ref", "return", "sbyte", "sealed", "short",
-		"sizeof", "stackalloc", "static", "string", "struct", "switch", "this", "throw", "true", "try", "typeof",
-		"uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual", "void", "volatile", "while":
+	case "abstract", "continue", "for", "new", "switch",
+		"assert", "default", "goto", "package", "synchronized",
+		"boolean", "do", "if", "private", "this",
+		"break", "double", "implements", "protected", "throw",
+		"byte", "else", "import", "public", "throws",
+		"case", "enum", "instanceof", "return", "transient",
+		"catch", "extends", "int", "short", "try",
+		"char", "final", "interface", "static", "void",
+		"class", "finally", "long", "strictfp", "volatile",
+		"const", "float", "native", "super", "while":
 		return true
 	// Treat contextual keywords as keywords, as we don't validate the context around them.
-	case "add", "alias", "ascending", "async", "await", "by", "descending", "dynamic", "equals", "from", "get",
-		"global", "group", "into", "join", "let", "nameof", "on", "orderby", "partial", "remove", "select", "set",
-		"unmanaged", "value", "var", "when", "where", "yield":
+	case "non-sealed", "permits", "record", "sealed", "var", "yield":
+		return true
+	// Treat contextual keywords as keywords, as we don't validate the context around them.
+	case "true", "false", "null":
 		return true
 	default:
 		return false
 	}
 }
 
-// isLegalIdentifierStart returns true if it is legal for c to be the first character of a C# identifier as per
-// https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure
-func isLegalIdentifierStart(c rune) bool {
-	return c == '_' || c == '@' ||
-		unicode.In(c, unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl)
-}
+// // isLegalIdentifierStart returns true if it is legal for c to be the first character of a C# identifier as per
+// // https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure
+// func isLegalIdentifierStart(c rune) bool {
+// 	return c == '_' || c == '@' ||
+// 		unicode.In(c, unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl)
+// }
 
-// isLegalIdentifierPart returns true if it is legal for c to be part of a C# identifier (besides the first character)
-// as per https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure
-func isLegalIdentifierPart(c rune) bool {
-	return c == '_' ||
-		unicode.In(c, unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc,
-			unicode.Nd, unicode.Pc, unicode.Cf)
-}
+// // isLegalIdentifierPart returns true if it is legal for c to be part of a C# identifier (besides the first character)
+// // as per https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure
+// func isLegalIdentifierPart(c rune) bool {
+// 	return c == '_' ||
+// 		unicode.In(c, unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc,
+// 			unicode.Nd, unicode.Pc, unicode.Cf)
+// }
 
-// makeValidIdentifier replaces characters that are not allowed in C# identifiers with underscores. A reserved word is
+// makeValidIdentifier replaces characters that are not allowed in java identifiers with underscores. A reserved word is
 // prefixed with @. No attempt is made to ensure that the result is unique.
 func makeValidIdentifier(name string) string {
-	var builder strings.Builder
-	for i, c := range name {
-		if i == 0 && c == '@' {
-			builder.WriteRune(c)
-			continue
-		}
-		if !isLegalIdentifierPart(c) {
-			builder.WriteRune('_')
-		} else {
-			if i == 0 && !isLegalIdentifierStart(c) {
-				builder.WriteRune('_')
-			}
-			builder.WriteRune(c)
-		}
-	}
-	name = builder.String()
+	// var builder strings.Builder
+	// for i, c := range name {
+	// 	if i == 0 && c == '@' {
+	// 		builder.WriteRune(c)
+	// 		continue
+	// 	}
+	// 	if !isLegalIdentifierPart(c) {
+	// 		builder.WriteRune('_')
+	// 	} else {
+	// 		if i == 0 && !isLegalIdentifierStart(c) {
+	// 			builder.WriteRune('_')
+	// 		}
+	// 		builder.WriteRune(c)
+	// 	}
+	// }
+	// name = builder.String()
 	if isReservedWord(name) {
-		return "@" + name
+		return name + "$"
 	}
 	return name
 }
@@ -100,10 +102,10 @@ func makeSafeEnumName(name, typeName string) (string, error) {
 	// Replace common single character enum names.
 	safeName := codegen.ExpandShortEnumName(name)
 
-	// If the name is one illegal character, return an error.
-	if len(safeName) == 1 && !isLegalIdentifierStart(rune(safeName[0])) {
-		return "", errors.Errorf("enum name %s is not a valid identifier", safeName)
-	}
+	// // If the name is one illegal character, return an error.
+	// if len(safeName) == 1 && !isLegalIdentifierStart(rune(safeName[0])) {
+	// 	return "", errors.Errorf("enum name %s is not a valid identifier", safeName)
+	// }
 
 	// Capitalize and make a valid identifier.
 	safeName = strings.Title(makeValidIdentifier(safeName))

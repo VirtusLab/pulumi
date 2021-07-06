@@ -220,8 +220,8 @@
   "language": {
     "jvm": {
       "packages": {
-        "plant": "Plant",
-        "tree/v1": "Tree.V1"
+        "plant": "plant",
+        "tree/v1": "tree.v1"
       }
     },
     "csharp": {
