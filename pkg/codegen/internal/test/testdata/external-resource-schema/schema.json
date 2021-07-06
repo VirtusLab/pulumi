@@ -141,6 +141,7 @@
     "go": {
       "generateResourceContainerTypes": true
     },
+    "jvm": {},
     "nodejs": {},
     "python": {}
   }

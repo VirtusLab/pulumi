@@ -1,6 +1,7 @@
 package jvm
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -15,25 +16,32 @@ func TestGeneratePackage(t *testing.T) {
 		expectedFiles []string
 	}{
 		{
-			//TODO: this is not final
+			"Simple schema with local resource properties",
+			"simple-resource-schema",
+			[]string{
+				"settings.gradle",
+			},
+		},
+		{
 			"Simple schema with enum types",
 			"simple-enum-schema",
 			[]string{
-				"Plant/Provider.java",
-				"Plant/Tree/V1/README.md",
-				"Plant/Tree/V1/Diameter.java",
-				"Plant/Inputs/ContainerArgs.java",
-				"Plant/Outputs/Container.java",
-				"Plant/ContainerBrightness.java",
-				"Plant/ContainerColor.java",
-				"Plant/Tree/V1/Nursery.java",
-				"Plant/README.md",
-				"Plant/ContainerSize.java",
-				"Plant/tree/README.md",
-				"Plant/Tree/V1/RubberTree.java",
-				"Plant/Tree/V1/Farm.java",
-				"Plant/Tree/V1/RubberTreeVariety.java",
-				"Plant/Tree/V1/TreeSize.java",
+				"settings.gradle",
+			},
+		},
+		// TODO: need to add external package
+		// {
+		// 	"External resource schema",
+		// 	"external-resource-schema",
+		// 	[]string{
+		// 		"settings.gradle",
+		// 	},
+		// },
+		{
+			"Simple schema with plain properties",
+			"simple-plain-schema",
+			[]string{
+				"settings.gradle",
 			},
 		},
 	}
@@ -43,6 +51,17 @@ func TestGeneratePackage(t *testing.T) {
 			files, err := test.GeneratePackageFilesFromSchema(
 				filepath.Join(testDir, tt.schemaDir, "schema.json"), GeneratePackage)
 			assert.NoError(t, err)
+
+			for path, file := range files {
+				fullPath := filepath.Join(testDir, tt.schemaDir, "jvm", path)
+				dir := filepath.Dir(fullPath)
+				os.MkdirAll(dir, 0777)
+				out, err := os.Create(fullPath)
+				if err == nil {
+					out.Write(file)
+				}
+				out.Close()
+			}
 
 			dir := filepath.Join(testDir, tt.schemaDir)
 			lang := "jvm"

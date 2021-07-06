@@ -13,10 +13,9 @@ type JavaPropertyInfo struct {
 
 // JavaPackageInfo represents the JVM language-specific info for a package.
 type JavaPackageInfo struct {
-	PackageReferences      map[string]string `json:"packageReferences,omitempty"`
-	Packages               map[string]string `json:"packages,omitempty"`
-	Compatibility          string            `json:"compatibility,omitempty"`
-	DictionaryConstructors bool              `json:"dictionaryConstructors,omitempty"`
+	PackageReferences map[string]string `json:"packageReferences,omitempty"`
+	Packages          map[string]string `json:"packages,omitempty"`
+	Compatibility     string            `json:"compatibility,omitempty"`
 }
 
 // Importer implements schema.Language for JVM
