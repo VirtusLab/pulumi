@@ -4,6 +4,7 @@ import io.grpc.Internal;
 import io.pulumi.core.InputOutput;
 import io.pulumi.resources.Resource;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -12,8 +13,24 @@ public abstract class InputOutputImpl<T, IO extends InputOutput<T, IO> & Copyabl
         implements InputOutput<T, IO>, TypedInputOutput<T>, UntypedInputOutput {
     protected final CompletableFuture<InputOutputData<T>> dataFuture;
 
+    protected InputOutputImpl(T value) {
+        this(value, false);
+    }
+
+    protected InputOutputImpl(T value, boolean isSecret) {
+        this(CompletableFuture.completedFuture(Objects.requireNonNull(value)), isSecret);
+    }
+
+    protected InputOutputImpl(CompletableFuture<T> value, boolean isSecret) {
+        this(InputOutputData.ofAsync(Objects.requireNonNull(value), isSecret));
+    }
+
+    protected InputOutputImpl(InputOutputData<T> dataFuture) {
+        this(CompletableFuture.completedFuture(Objects.requireNonNull(dataFuture)));
+    }
+
     protected InputOutputImpl(CompletableFuture<InputOutputData<T>> dataFuture) {
-        this.dataFuture = dataFuture;
+        this.dataFuture = Objects.requireNonNull(dataFuture);
     }
 
     protected abstract IO newInstance(CompletableFuture<InputOutputData<T>> dataFuture);

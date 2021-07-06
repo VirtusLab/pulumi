@@ -21,11 +21,11 @@ public final class InputList<T> extends InputImpl<List<T>, Input<List<T>>> imple
     }
 
     protected InputList(List<T> values) {
-        this(InputOutputData.ofAsync(CompletableFuture.completedFuture(values), false));
+        super(values, false);
     }
 
     protected InputList(Input<List<T>> inputs) {
-        this(((TypedInputOutput<List<T>>) inputs).internalGetDataAsync());
+        super(TypedInputOutput.cast(inputs).internalGetDataAsync());
     }
 
     protected InputList(CompletableFuture<InputOutputData<List<T>>> values) {
@@ -39,7 +39,7 @@ public final class InputList<T> extends InputImpl<List<T>, Input<List<T>>> imple
     @Override
     public <U> Input<U> applyInput(Function<List<T>, Input<U>> func) {
         return new InputDefault<>(InputOutputData.apply(dataFuture, func.andThen(
-                o -> ((TypedInputOutput<U>) o).internalGetDataAsync())
+                o -> TypedInputOutput.cast(o).internalGetDataAsync())
         ));
     }
 

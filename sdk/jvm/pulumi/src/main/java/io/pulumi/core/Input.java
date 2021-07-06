@@ -2,11 +2,10 @@ package io.pulumi.core;
 
 import io.pulumi.core.internal.InputOutputData;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
-import static io.pulumi.core.InputImpl.ZeroIn;
+import static io.pulumi.core.InputDefault.ZeroIn;
 
 public interface Input<T> extends InputOutput<T, Input<T>> {
 
@@ -73,26 +72,19 @@ public interface Input<T> extends InputOutput<T, Input<T>> {
     // Static section -----
 
     static <T> Input<T> of(T value) {
-        Objects.requireNonNull(value);
-        return of(CompletableFuture.completedFuture(value));
+        return new InputDefault<>(value);
     }
 
     static <T> Input<T> of(CompletableFuture<T> value) {
-        return of(value, false);
+        return new InputDefault<>(value, false);
     }
 
     static <T> Input<T> ofSecret(T value) {
-        Objects.requireNonNull(value);
-        return of(CompletableFuture.completedFuture(value), true);
-    }
-
-    private static <T> Input<T> of(CompletableFuture<T> value, boolean isSecret) {
-        Objects.requireNonNull(value);
-        return new InputDefault<>(InputOutputData.ofAsync(value, isSecret));
+        return new InputDefault<>(value, true);
     }
 
     static <T> Input<T> empty() {
-        return new InputDefault<>(CompletableFuture.completedFuture(InputOutputData.empty()));
+        return new InputDefault<>(InputOutputData.empty());
     }
 
     // Tuple Overloads that take different numbers of inputs or outputs.

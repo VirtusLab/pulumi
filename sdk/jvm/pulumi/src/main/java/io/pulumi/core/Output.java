@@ -2,15 +2,14 @@ package io.pulumi.core;
 
 import com.google.common.collect.Lists;
 import io.pulumi.core.internal.InputOutputData;
-import io.pulumi.core.internal.InputOutputImpl;
+import io.pulumi.core.internal.TypedInputOutput;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static io.pulumi.core.InputImpl.ZeroIn;
+import static io.pulumi.core.InputDefault.ZeroIn;
 import static io.pulumi.core.OutputDefault.ZeroOut;
 import static io.pulumi.core.internal.InputOutputData.internalAllHelperAsync;
 
@@ -78,25 +77,19 @@ public interface Output<T> extends InputOutput<T, Output<T>> {
     // Static section -----
 
     static <T> Output<T> of(T value) {
-        return of(CompletableFuture.completedFuture(value));
+        return new OutputDefault<>(value);
     }
 
     static <T> Output<T> of(CompletableFuture<T> value) {
-        return of(value, false);
+        return new OutputDefault<>(value, false);
     }
 
     static <T> Output<T> ofSecret(T value) {
-        Objects.requireNonNull(value);
-        return of(CompletableFuture.completedFuture(value), true);
-    }
-
-    private static <T> Output<T> of(CompletableFuture<T> value, boolean isSecret) {
-        Objects.requireNonNull(value);
-        return new OutputDefault<>(InputOutputData.ofAsync(value, isSecret));
+        return new OutputDefault<>(value, true);
     }
 
     static <T> Output<T> empty() {
-        return new OutputDefault<>(CompletableFuture.completedFuture(InputOutputData.empty()));
+        return new OutputDefault<>(InputOutputData.empty());
     }
 
     /**
@@ -142,7 +135,7 @@ public interface Output<T> extends InputOutput<T, Output<T>> {
         return new OutputDefault<>(
                 internalAllHelperAsync(inputs
                         .stream()
-                        .map(input -> ((InputOutputImpl<T, Input<T>>) input).internalGetDataAsync())
+                        .map(input -> TypedInputOutput.cast(input).internalGetDataAsync())
                         .collect(Collectors.toList()))
         );
     }
@@ -151,7 +144,7 @@ public interface Output<T> extends InputOutput<T, Output<T>> {
         return new OutputDefault<>(
                 internalAllHelperAsync(outputs
                         .stream()
-                        .map(output -> ((InputOutputImpl<T, Output<T>>) output).internalGetDataAsync())
+                        .map(output -> TypedInputOutput.cast(output).internalGetDataAsync())
                         .collect(Collectors.toList()))
         );
     }

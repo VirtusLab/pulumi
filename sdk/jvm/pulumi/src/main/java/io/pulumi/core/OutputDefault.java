@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import io.grpc.Internal;
 import io.pulumi.core.internal.InputOutputData;
 import io.pulumi.core.internal.InputOutputImpl;
+import io.pulumi.core.internal.TypedInputOutput;
 import io.pulumi.resources.Resource;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -19,12 +20,28 @@ import static io.pulumi.core.internal.InputOutputData.internalAllHelperAsync;
 
 @Internal
 @ParametersAreNonnullByDefault
-public class OutputDefault<T> extends InputOutputImpl<T, Output<T>> implements Output<T> {
+public final class OutputDefault<T> extends InputOutputImpl<T, Output<T>> implements Output<T> {
 
     @Internal
     static final Output<Void> ZeroOut = Output.empty();
 
-    protected OutputDefault(CompletableFuture<InputOutputData<T>> dataFuture) {
+    OutputDefault(T value) {
+        super(value);
+    }
+
+    OutputDefault(T value, boolean isSecret) {
+        super(value, isSecret);
+    }
+
+    OutputDefault(CompletableFuture<T> value, boolean isSecret) {
+        super(value, isSecret);
+    }
+
+    OutputDefault(InputOutputData<T> dataFuture) {
+        super(dataFuture);
+    }
+
+    OutputDefault(CompletableFuture<InputOutputData<T>> dataFuture) {
         super(dataFuture);
 
         /* TODO: wut?!
@@ -45,7 +62,7 @@ public class OutputDefault<T> extends InputOutputImpl<T, Output<T>> implements O
 
     public <U> Output<U> applyOutput(Function<T, Output<U>> func) {
         return new OutputDefault<>(InputOutputData.apply(dataFuture, func.andThen(
-                o -> ((InputOutputImpl<U, Output<U>>) o).internalGetDataAsync())));
+                o -> TypedInputOutput.cast(o).internalGetDataAsync())));
     }
 
     // TODO
@@ -89,7 +106,7 @@ public class OutputDefault<T> extends InputOutputImpl<T, Output<T>> implements O
 
         return new OutputDefault<>(
                 internalAllHelperAsync(data)
-                        .thenApply(objs -> objs.withValue(
+                        .thenApply(objs -> objs.apply(
                                 v -> v == null ? null : String.format(formattableString, v.toArray())))
         );
     }

@@ -69,7 +69,7 @@ public class InputOutputData<T> implements Copyable<InputOutputData<T>> {
         return new InputOutputData<>(this.resources, this.value, this.known, isSecret);
     }
 
-    public <U> InputOutputData<U> withValue(Function<T, U> function) {
+    public <U> InputOutputData<U> apply(Function<T, U> function) {
         return new InputOutputData<>(this.resources, function.apply(this.value), this.known, this.secret);
     }
 
@@ -172,14 +172,14 @@ public class InputOutputData<T> implements Copyable<InputOutputData<T>> {
             Input<T5> input5, Input<T6> input6, Input<T7> input7, Input<T8> input8
     ) {
         return internalTupleHelperAsync(
-                ((TypedInputOutput<T1>) input1).internalGetDataAsync(),
-                ((TypedInputOutput<T2>) input2).internalGetDataAsync(),
-                ((TypedInputOutput<T3>) input3).internalGetDataAsync(),
-                ((TypedInputOutput<T4>) input4).internalGetDataAsync(),
-                ((TypedInputOutput<T5>) input5).internalGetDataAsync(),
-                ((TypedInputOutput<T6>) input6).internalGetDataAsync(),
-                ((TypedInputOutput<T7>) input7).internalGetDataAsync(),
-                ((TypedInputOutput<T8>) input8).internalGetDataAsync()
+                (TypedInputOutput.cast(input1)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input2)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input3)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input4)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input5)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input6)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input7)).internalGetDataAsync(),
+                (TypedInputOutput.cast(input8)).internalGetDataAsync()
         );
     }
 
@@ -188,14 +188,14 @@ public class InputOutputData<T> implements Copyable<InputOutputData<T>> {
             Output<T5> output5, Output<T6> output6, Output<T7> output7, Output<T8> output8
     ) {
         return internalTupleHelperAsync(
-                ((TypedInputOutput<T1>) output1).internalGetDataAsync(),
-                ((TypedInputOutput<T2>) output2).internalGetDataAsync(),
-                ((TypedInputOutput<T3>) output3).internalGetDataAsync(),
-                ((TypedInputOutput<T4>) output4).internalGetDataAsync(),
-                ((TypedInputOutput<T5>) output5).internalGetDataAsync(),
-                ((TypedInputOutput<T6>) output6).internalGetDataAsync(),
-                ((TypedInputOutput<T7>) output7).internalGetDataAsync(),
-                ((TypedInputOutput<T8>) output8).internalGetDataAsync()
+                (TypedInputOutput.cast(output1)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output2)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output3)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output4)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output5)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output6)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output7)).internalGetDataAsync(),
+                (TypedInputOutput.cast(output8)).internalGetDataAsync()
         );
     }
 

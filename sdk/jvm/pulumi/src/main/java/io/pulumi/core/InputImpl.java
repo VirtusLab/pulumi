@@ -11,8 +11,22 @@ import java.util.concurrent.CompletableFuture;
 @Internal
 @ParametersAreNonnullByDefault
 abstract class InputImpl<T, IO extends InputOutput<T, IO> & Copyable<IO>> extends InputOutputImpl<T, IO> {
-    @Internal
-    static final Input<Void> ZeroIn = Input.empty();
+
+    protected InputImpl(T value) {
+        super(value);
+    }
+
+    protected InputImpl(T value, boolean isSecret) {
+        super(value, isSecret);
+    }
+
+    protected InputImpl(CompletableFuture<T> value, boolean isSecret) {
+        super(value, isSecret);
+    }
+
+    protected InputImpl(InputOutputData<T> dataFuture) {
+        super(dataFuture);
+    }
 
     protected InputImpl(CompletableFuture<InputOutputData<T>> dataFuture) {
         super(dataFuture);
