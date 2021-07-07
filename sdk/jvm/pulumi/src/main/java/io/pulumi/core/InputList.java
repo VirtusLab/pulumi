@@ -24,6 +24,10 @@ public final class InputList<T> extends InputImpl<List<T>, Input<List<T>>> imple
         super(values, false);
     }
 
+    protected InputList(List<T> values, boolean secret) {
+        super(values, secret);
+    }
+
     protected InputList(Input<List<T>> inputs) {
         super(TypedInputOutput.cast(inputs).internalGetDataAsync());
     }
@@ -93,6 +97,14 @@ public final class InputList<T> extends InputImpl<List<T>, Input<List<T>>> imple
     // Static section -----
     public static <T> InputList<T> of(List<T> values) {
         return new InputList<>(values);
+    }
+
+    public static <T> InputList<T> of(Input<List<T>> values) {
+        return new InputList<>(values);
+    }
+
+    public static <T> InputList<T> ofSecret(List<T> value) {
+        return new InputList<>(value, true);
     }
 
     public static <T> InputList<T> empty() {

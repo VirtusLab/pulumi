@@ -5,6 +5,8 @@ import com.google.gson.JsonParseException;
 import io.pulumi.core.Output;
 import io.pulumi.deployment.Deployment;
 
+import java.util.Optional;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
