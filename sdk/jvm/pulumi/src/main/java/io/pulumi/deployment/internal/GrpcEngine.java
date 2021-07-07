@@ -27,8 +27,8 @@ public class GrpcEngine implements Engine {
     }
 
     @Override
-    public CompletableFuture<Empty> logAsync(LogRequest request) {
-        return toCompletableFuture(this.engine.log(request));
+    public CompletableFuture<Void> logAsync(LogRequest request) {
+        return toCompletableFuture(this.engine.log(request)).thenApply(empty -> null);
     }
 
     @Override

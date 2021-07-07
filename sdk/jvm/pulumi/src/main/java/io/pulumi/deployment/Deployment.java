@@ -6,28 +6,38 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
+import com.google.protobuf.Struct;
 import io.grpc.Internal;
+import io.pulumi.Log;
 import io.pulumi.Stack;
 import io.pulumi.core.Output;
+import io.pulumi.core.Tuples;
+import io.pulumi.core.Tuples.Tuple2;
 import io.pulumi.core.internal.*;
 import io.pulumi.deployment.internal.*;
 import io.pulumi.exceptions.LogException;
 import io.pulumi.exceptions.ResourceException;
 import io.pulumi.exceptions.RunException;
 import io.pulumi.resources.*;
+import io.pulumi.serialization.internal.Serializer;
 import io.pulumi.test.internal.TestOptions;
+import pulumirpc.EngineOuterClass.LogRequest;
+import pulumirpc.EngineOuterClass.LogSeverity;
+import pulumirpc.Provider;
 import pulumirpc.Resource.SupportsFeatureRequest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.*;
 import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -90,7 +100,6 @@ public class Deployment implements DeploymentInternalInternal {
      */
     private static DeploymentState fromEnvironment() {
         try {
-            var disableResourceReferences = getBooleanEnvironmentVariable("PULUMI_DISABLE_RESOURCE_REFERENCES");
             var monitorTarget = getEnvironmentVariable("PULUMI_MONITOR");
             var engineTarget = getEnvironmentVariable("PULUMI_ENGINE");
             var project = getEnvironmentVariable("PULUMI_PROJECT");
@@ -113,10 +122,7 @@ public class Deployment implements DeploymentInternalInternal {
             var monitor = new GrpcMonitor(monitorTarget);
             standardLogger.log(Level.FINEST, "Created deployment monitor");
 
-            var logger = new DefaultEngineLogger(standardLogger);
-            var runner = new DefaultRunner(logger, standardLogger);
-
-            return new DeploymentState(project, stack, dryRun, engine, monitor, runner, logger);
+            return new DeploymentState(standardLogger, project, stack, dryRun, engine, monitor);
         } catch (NullPointerException ex) {
             throw new IllegalStateException(
                     "Program run without the Pulumi engine available; re-run using the `pulumi` CLI", ex);
@@ -133,7 +139,7 @@ public class Deployment implements DeploymentInternalInternal {
     }
 
     /**
-     * This constructor is called from <see cref="TestAsync(IMocks, Func{IRunner, Task{int}}, TestOptions?)"/>
+     * This constructor is called from @see #testAsync(IMocks, Func{IRunner, Task{int}}, TestOptions?)"/>
      * with a mocked monitor and dummy values for project and stack.
      * <para/>
      * This constructor is also used in deployment tests in order to
@@ -151,9 +157,9 @@ public class Deployment implements DeploymentInternalInternal {
         var project = options.getProjectName();
         var stack = options.getStackName();
         var dryRun = options.isPreview();
-        var logger = new DefaultEngineLogger(standardLogger);
-        var runner = new DefaultRunner(logger, standardLogger);
-        return new Deployment(new DeploymentState(project, stack, dryRun, engine, monitor, runner, logger));
+        return new Deployment(
+                new DeploymentState(standardLogger, project, stack, dryRun, engine, monitor)
+        );
     }
 
     @Override
@@ -241,15 +247,76 @@ public class Deployment implements DeploymentInternalInternal {
         return monitorSupportsFeature("resourceReferences");
     }
 
-
     @Override
-    public <T> CompletableFuture<T> invokeAsync(String token, InvokeArgs args, @Nullable InvokeOptions options) {
-        return null; // TODO
+    public CompletableFuture<Void> invokeAsyncIgnore(String token, InvokeArgs args, @Nullable InvokeOptions options) {
+        return invokeRawAsync(token, args, options).thenApply(unused -> null);
     }
 
     @Override
-    public CompletableFuture<Void> invokeAsyncIgnore(String token, InvokeArgs args, @Nullable InvokeOptions options) {
-        return null; // TODO
+    public <T> CompletableFuture<T> invokeAsync(String token, InvokeArgs args, @Nullable InvokeOptions options) {
+        /*return invokeRawAsync(token, args, options).thenApply(
+                struct ->
+        );*/
+
+        // TODO
+        /*
+            var result = await InvokeRawAsync(token, args, options);
+
+            var data = Converter.ConvertValue<T>($"{token} result", new Value { StructValue = result });
+            return data.Value;
+        */
+        throw new UnsupportedOperationException();
+    }
+
+
+    private CompletableFuture<Struct> invokeRawAsync(String token, InvokeArgs args, @Nullable InvokeOptions options) {
+        var label = String.format("Invoking function: token='%s' asynchronously", token);
+        Log.debug(label);
+
+        // Be resilient to misbehaving callers.
+        args = args == null ? InvokeArgs.Empty : args;
+
+        // Wait for all values to be available, and then perform the RPC.
+        var serializedFuture = args.internalTypedOptionalToMapAsync()
+                .thenCompose(argsDict ->
+                        this.monitorSupportsResourceReferences()
+                                .thenCompose(supportsResourceReferences ->
+                                        serializeAllPropertiesAsync(
+                                                String.format("invoke:%s", token), argsDict, supportsResourceReferences
+                                        ))
+                );
+
+        var providerFuture = ProviderResource.internalRegisterAsync(
+                getProvider(token, options).orElse(null));
+
+        return CompletableFuture.allOf(serializedFuture, providerFuture)
+                .thenCompose(unused -> {
+                    var serialized = serializedFuture.join();
+                    var provider = providerFuture.join();
+
+                    Log.debug(String.format("Invoke RPC prepared: token='%s'", token) +
+                            (DeploymentState.ExcessiveDebugOutput ? String.format(", obj='%s'", serialized) : ""));
+                    return this.state.monitor.invokeAsync(Provider.InvokeRequest.newBuilder()
+                            .setTok(token)
+                            .setProvider(provider == null ? "" : provider)
+                            .setVersion(options == null ? "" : options.getVersion().orElse(""))
+                            .setArgs(serialized)
+                            .setAcceptResources(!DeploymentState.DisableResourceReferences)
+                            .build());
+                }).thenApply(response -> {
+                    if (response.getFailuresCount() > 0) {
+                        StringBuilder reasons = new StringBuilder();
+                        for (var reason : response.getFailuresList()) {
+                            if (!Objects.equals(reasons.toString(), "")) {
+                                reasons.append("; ");
+                            }
+                            reasons.append(String.format("%s (%s)", reason.getReason(), reason.getProperty()));
+                        }
+
+                        throw new InvokeException(String.format("Invoke of '%s' failed: %s", token, reasons));
+                    }
+                    return response.getReturn();
+                });
     }
 
     @Override
@@ -267,8 +334,81 @@ public class Deployment implements DeploymentInternalInternal {
         return options != null ? options.internalGetProvider(token) : Optional.empty();
     }
 
+    /**
+     * Walks the props object passed in, awaiting all interior promises besides those
+     * for @see {@link Resource#getUrn()} and @see {@link CustomResource#getId()},
+     * creating a reasonable POJO object that can be remoted over to registerResource.
+     */
+    private static CompletableFuture<SerializationResult> serializeResourcePropertiesAsync(
+            String label, Map<String, Optional<Object>> args, boolean keepResources
+    ) {
+        Predicate<String> filter = key -> !Constants.IdPropertyName.equals(key) && !Constants.UrnPropertyName.equals(key);
+        return serializeFilteredPropertiesAsync(label, args, filter, keepResources);
+    }
+
+    private static CompletableFuture<Struct> serializeAllPropertiesAsync(
+            String label, Map<String, Optional<Object>> args, boolean keepResources
+    ) {
+        return serializeFilteredPropertiesAsync(label, args, unused -> true, keepResources)
+                .thenApply(result -> result.serialized);
+    }
+
+    /**
+     * walks the props object passed in, awaiting all interior promises for properties
+     * with keys that match the provided filter, creating a reasonable POJO object that
+     * can be remoted over to registerResource.
+     */
+    private static CompletableFuture<SerializationResult> serializeFilteredPropertiesAsync(
+            String label, Map<String, Optional<Object>> args, Predicate<String> acceptKey, boolean keepResources) {
+        var propertyToDependentResources = ImmutableMap.<String, Set<Resource>>builder();
+        var resultFutures = new HashMap<String, CompletableFuture</* @Nullable */ Object>>();
+        var temporaryResources = new HashMap<String, Set<Resource>>();
+
+        for (var arg : args.entrySet()) {
+            var key = arg.getKey();
+            var value = arg.getValue();
+            if (acceptKey.test(key)) {
+                // We treat properties with null values as if they do not exist.
+                var serializer = new Serializer(DeploymentState.ExcessiveDebugOutput);
+                resultFutures.put(key, serializer.serializeAsync(String.format("%s.%s", label, key), value, keepResources));
+                temporaryResources.put(key, serializer.dependentResources); // FIXME: this is ugly
+            }
+        }
+
+        return CompletableFutures.allOf(resultFutures)
+                .thenApply(
+                        completedFutures -> {
+                            var results = new HashMap<String, /* @Nullable */ Object>();
+                            for (var entry : completedFutures.entrySet()) {
+                                var key = entry.getKey();
+                                var value = /* @Nullable */ entry.getValue().join();
+                                // We treat properties with null values as if they do not exist.
+                                if (value != null) {
+                                    results.put(key, value);
+                                    propertyToDependentResources.put(key, temporaryResources.get(key)); // FIXME: this is ugly
+                                }
+                            }
+                            return results;
+                        })
+                .thenApply(
+                        results -> new SerializationResult(
+                                Serializer.createStruct(results),
+                                propertyToDependentResources.build()
+                        )
+                );
+    }
+
+    private static class InvokeException extends RuntimeException {
+        public InvokeException(String message) {
+            super(message);
+        }
+    }
+
     @ParametersAreNonnullByDefault
     private static class DeploymentState {
+        public static final boolean DisableResourceReferences = getBooleanEnvironmentVariable("PULUMI_DISABLE_RESOURCE_REFERENCES");
+        public static final boolean ExcessiveDebugOutput = false;
+
         public final String projectName;
         public final String stackName;
         public final boolean isDryRun;
@@ -278,29 +418,24 @@ public class Deployment implements DeploymentInternalInternal {
         public final EngineLogger logger;
 
         private DeploymentState(
+                Logger standardLogger,
                 String projectName,
                 String stackName,
                 boolean isDryRun,
                 Engine engine,
-                Monitor monitor,
-                Runner runner,
-                EngineLogger logger) {
-            this.projectName = projectName;
-            this.stackName = stackName;
+                Monitor monitor) {
+            Objects.requireNonNull(standardLogger);
+            this.projectName = Objects.requireNonNull(projectName);
+            this.stackName = Objects.requireNonNull(stackName);
             this.isDryRun = isDryRun;
-            this.engine = engine;
-            this.monitor = monitor;
-            this.runner = runner;
-            this.logger = logger;
+            this.engine = Objects.requireNonNull(engine);
+            this.monitor = Objects.requireNonNull(monitor);
+            this.runner = new DefaultRunner(this, standardLogger);
+            this.logger = new DefaultEngineLogger(this, standardLogger);
         }
     }
 
-    private static class InvokeException extends RuntimeException {
-        public InvokeException(String message) {
-            super(message);
-        }
-    }
-
+    @ParametersAreNonnullByDefault
     private static class DefaultRunner implements Runner {
         private static final int ProcessExitedSuccessfully = 0;
         private static final int ProcessExitedBeforeLoggingUserActionableMessage = 1;
@@ -328,9 +463,9 @@ public class Deployment implements DeploymentInternalInternal {
          */
         private final Map<CompletableFuture<Void>, List<String>> inFlightTasks = new HashMap<>(); // TODO: try to remove syncing later in code with Collections.synchronizedMap
 
-        public DefaultRunner(EngineLogger engineLogger, Logger standardLogger) {
-            this.engineLogger = engineLogger;
-            this.standardLogger = standardLogger;
+        public DefaultRunner(DeploymentState deployment, Logger standardLogger) {
+            this.engineLogger = Objects.requireNonNull(deployment).logger;
+            this.standardLogger = Objects.requireNonNull(standardLogger);
         }
 
         // TODO
@@ -342,7 +477,7 @@ public class Deployment implements DeploymentInternalInternal {
                 // Stack doesn't call RegisterOutputs, so we register them on its behalf.
                 stack.internalRegisterPropertyOutputs();
                 registerTask(String.format("runAsync: %s, %s", stack.getType(), stack.getName()),
-                        ((TypedInputOutput<Map<String, Optional<Object>>>) stack.internalGetOutputs()).internalGetDataAsync());
+                        TypedInputOutput.cast(stack.internalGetOutputs()).internalGetDataAsync());
             } catch (Exception ex) {
                 return handleExceptionAsync(ex);
             }
@@ -354,7 +489,7 @@ public class Deployment implements DeploymentInternalInternal {
         public CompletableFuture<Integer> runAsyncFuture(Supplier<CompletableFuture<Map<String, Optional<Object>>>> callback, @Nullable StackOptions options) {
             var stack = new Stack(callback, options);
             registerTask(String.format("runAsyncFuture: %s, %s", stack.getType(), stack.getName()),
-                    ((TypedInputOutput<Map<String, Optional<Object>>>) stack.internalGetOutputs()).internalGetDataAsync());
+                    TypedInputOutput.cast(stack.internalGetOutputs()).internalGetDataAsync());
             return whileRunningAsync();
         }
 
@@ -368,7 +503,7 @@ public class Deployment implements DeploymentInternalInternal {
                 // (for example a completed future). In that case, we just store all the
                 // descriptions.
                 // We'll print them all out as done once this task actually finishes.
-                inFlightTasks.compute((CompletableFuture<Void>) task, (ignore, descriptions) -> {
+                inFlightTasks.compute(task.thenApply(unused -> null), (ignore, descriptions) -> {
                     if (descriptions == null) {
                         return Lists.newArrayList(description);
                     } else {
@@ -490,80 +625,124 @@ public class Deployment implements DeploymentInternalInternal {
         }
     }
 
+    @ParametersAreNonnullByDefault
     private static class DefaultEngineLogger implements EngineLogger {
+        private final Runner runner;
+        private final Engine engine;
         private final Logger standardLogger;
+        private final AtomicInteger errorCount;
 
-        public DefaultEngineLogger(Logger standardLogger) {
+        // We serialize all logging tasks so that the engine doesn't hear about them out of order.
+        // This is necessary for streaming logs to be maintained in the right order.
+        private CompletableFuture<Void> lastLogTask = CompletableFuture.completedFuture(null);
+        private final Object logGate = new Object(); // lock target
+
+        public DefaultEngineLogger(DeploymentState deployment, Logger standardLogger) {
+            this.runner = deployment.runner;
+            this.engine = deployment.engine;
             this.standardLogger = standardLogger;
+            this.errorCount = new AtomicInteger(0);
         }
 
-        // TODO
         @Override
         public boolean hasLoggedErrors() {
-            return false;
-        }
-
-        @Override
-        public CompletableFuture<Void> debugAsync(String message) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> infoAsync(String message) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> warnAsync(String message) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> errorAsync(String message) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> debugAsync(String message, @Nullable Resource resource) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> infoAsync(String message, @Nullable Resource resource) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> warnAsync(String message, @Nullable Resource resource) {
-            return null;
-        }
-
-        @Override
-        public CompletableFuture<Void> errorAsync(String message, @Nullable Resource resource) {
-            return null;
+            return errorCount.get() > 0;
         }
 
         @Override
         public CompletableFuture<Void> debugAsync(String message, @Nullable Resource resource, @Nullable Integer streamId, @Nullable Boolean ephemeral) {
-            return null;
+            standardLogger.log(Level.FINEST, message);
+            return logImplAsync(LogSeverity.DEBUG, message, resource, streamId, ephemeral);
         }
 
         @Override
         public CompletableFuture<Void> infoAsync(String message, @Nullable Resource resource, @Nullable Integer streamId, @Nullable Boolean ephemeral) {
-            return null;
+            standardLogger.log(Level.INFO, message);
+            return logImplAsync(LogSeverity.INFO, message, resource, streamId, ephemeral);
         }
 
         @Override
         public CompletableFuture<Void> warnAsync(String message, @Nullable Resource resource, @Nullable Integer streamId, @Nullable Boolean ephemeral) {
-            return null;
+            standardLogger.log(Level.WARNING, message);
+            return logImplAsync(LogSeverity.WARNING, message, resource, streamId, ephemeral);
         }
 
         @Override
         public CompletableFuture<Void> errorAsync(String message, @Nullable Resource resource, @Nullable Integer streamId, @Nullable Boolean ephemeral) {
-            return null;
+            standardLogger.log(Level.SEVERE, message);
+            return logImplAsync(LogSeverity.ERROR, message, resource, streamId, ephemeral);
+        }
+
+        private CompletableFuture<Void> logImplAsync(LogSeverity severity, String message,
+                                                     @Nullable Resource resource, @Nullable Integer streamId,
+                                                     @Nullable Boolean ephemeral
+        ) {
+            // Serialize our logging tasks so that streaming logs appear in order.
+            CompletableFuture<Void> task;
+            synchronized (logGate) {
+                if (severity == LogSeverity.ERROR) {
+                    this.errorCount.incrementAndGet();
+                }
+
+                // TODO: C# uses a 'Task.Run' here (like CompletableFuture.runAsync/supplyAsync?)
+                //       so that "we don't end up aggressively running the actual logging while holding this lock."
+                //       Is something similar required in Java or thenComposeAsync is enough?
+                this.lastLogTask = this.lastLogTask.thenComposeAsync(
+                        unused -> logAsync(severity, message, resource, streamId, ephemeral)
+                );
+                task = this.lastLogTask;
+            }
+
+            this.runner.registerTask(message, task);
+            return task;
+        }
+
+        private CompletableFuture<Void> logAsync(LogSeverity severity, String message,
+                                                 @Nullable Resource resource, @Nullable Integer streamId,
+                                                 @Nullable Boolean ephemeral) {
+            try {
+                return tryGetResourceUrnAsync(resource)
+                        .thenCompose(
+                                urn -> engine.logAsync(LogRequest.newBuilder()
+                                        .setSeverity(severity)
+                                        .setMessage(message)
+                                        .setUrn(urn)
+                                        .setStreamId(streamId == null ? 0 : streamId)
+                                        .setEphemeral(ephemeral != null && ephemeral).build()
+                                )
+                        );
+            } catch (Exception e) {
+                synchronized (logGate) {
+                    // mark that we had an error so that our top level process quits with an error
+                    // code.
+                    errorCount.incrementAndGet();
+                }
+
+                // We have a potential pathological case with logging. Consider if logging a
+                // message itself throws an error.  If we then allow the error to bubble up, our top
+                // level handler will try to log that error, which can potentially lead to an error
+                // repeating unendingly. So, to prevent that from happening, we report a very specific
+                // exception that the top level can know about and handle specially.
+                throw new LogException(e);
+            }
+        }
+
+        private static CompletableFuture<String> tryGetResourceUrnAsync(@Nullable Resource resource) {
+            if (resource != null) {
+                try {
+                    return TypedInputOutput.cast(resource.getUrn()).internalGetValueAsync();
+                } catch (Throwable ignore) {
+                    // getting the urn for a resource may itself fail, in that case we don't want to
+                    // fail to send an logging message. we'll just send the logging message unassociated
+                    // with any resource.
+                }
+            }
+
+            return CompletableFuture.completedFuture("");
         }
     }
 
+    @ParametersAreNonnullByDefault
     private static class Config {
 
         /**
@@ -684,6 +863,23 @@ public class Deployment implements DeploymentInternalInternal {
             }
 
             return key;
+        }
+    }
+
+    @ParametersAreNonnullByDefault
+    private static class SerializationResult {
+        public final Struct serialized;
+        public final ImmutableMap<String, Set<Resource>> propertyToDependentResources;
+
+        public SerializationResult(
+                Struct result,
+                ImmutableMap<String, Set<Resource>> propertyToDependentResources) {
+            this.serialized = result;
+            this.propertyToDependentResources = propertyToDependentResources;
+        }
+
+        public Tuple2<Struct, ImmutableMap<String, Set<Resource>>> deconstruct() {
+            return Tuples.of(serialized, propertyToDependentResources);
         }
     }
 }

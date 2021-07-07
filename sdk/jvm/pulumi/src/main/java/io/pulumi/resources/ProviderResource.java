@@ -2,11 +2,12 @@ package io.pulumi.resources;
 
 import com.google.common.base.Strings;
 import io.grpc.Internal;
-import io.pulumi.core.Output;
 import io.pulumi.core.internal.Constants;
+import io.pulumi.core.internal.TypedInputOutput;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A @see {@link Resource} that implements CRUD operations
@@ -18,7 +19,7 @@ public class ProviderResource extends CustomResource {
     private static final String ProviderResourceTypePrefix = "pulumi:providers:";
     private final String aPackage;
     @Nullable
-    private Output<String> registrationId;
+    private CompletableFuture<String> registrationId;
 
     /**
      * Creates and registers a new provider resource for a particular package.
@@ -70,18 +71,20 @@ public class ProviderResource extends CustomResource {
 
     // TODO: why is this method needed? looks hacky, how to make it better? and why is this async?
     //       there is a mutable "cache" field 'provider.registrationId' also
-    public static Output<String> internalRegisterAsync(@Nullable ProviderResource provider) {
+    public static CompletableFuture<String> internalRegisterAsync(@Nullable ProviderResource provider) {
         if (provider == null) {
-            return Output.empty();
+            return CompletableFuture.supplyAsync(() -> null);
         }
 
         if (provider.registrationId == null) { // TODO: this caching, is it needed really?
-            provider.registrationId = Output.tuple(
-                    provider.getUrn(),
-                    provider.getId().apply(
-                            pId -> Strings.isNullOrEmpty(pId) ? Constants.UnknownValue : pId
-                    )
-            ).apply(t -> String.format("%s::%s", t.t1, t.t2));
+            var providerUrn = TypedInputOutput.cast(provider.getUrn()).internalGetValueAsync();
+            var providerId = TypedInputOutput.cast(provider.getId()).internalGetValueAsync()
+                    .thenApply(pId -> Strings.isNullOrEmpty(pId) ? Constants.UnknownValue : pId);
+
+            provider.registrationId = providerUrn.thenCompose(
+                    pUrn -> providerId.thenApply(
+                            pId -> String.format("%s::%s", pUrn, pId)
+                    ));
         }
         return provider.registrationId;
     }

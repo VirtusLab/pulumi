@@ -19,12 +19,12 @@ public abstract class AssetOrArchive {
     }
 
     @Internal
-    String getSigKey() {
+    public String getSigKey() {
         return sigKey;
     }
 
     @Internal
-    Object getValue() {
+    public Object getValue() {
         return value;
     }
 

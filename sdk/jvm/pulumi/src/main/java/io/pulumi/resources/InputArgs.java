@@ -1,9 +1,13 @@
 package io.pulumi.resources;
 
 import com.google.common.collect.ImmutableList;
+import io.grpc.Internal;
+import io.pulumi.core.internal.Collections;
 import io.pulumi.core.internal.annotations.InputAttribute;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
@@ -17,6 +21,18 @@ public abstract class InputArgs {
     protected InputArgs() {
         // TODO
         throw new UnsupportedOperationException();
+    }
+
+    @Internal
+    public CompletableFuture<Map<String, Optional<Object>>> internalTypedOptionalToMapAsync() {
+        // TODO
+        throw new UnsupportedOperationException();
+    }
+
+    @Internal
+    public CompletableFuture<Map<Object, /* @Nullable */ Object>> internalUntypedNullableToMapAsync() {
+        return internalTypedOptionalToMapAsync()
+                .thenApply(Collections::typedOptionalMapToUntypedNullableMap);
     }
 
     // TODO

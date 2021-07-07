@@ -26,7 +26,7 @@ public interface TypedInputOutput<T> {
             throw new IllegalArgumentException(
                     String.format(
                             "Expected a 'TypedInputOutput<T>' instance, got: %s",
-                            inputOutput.getClass().getCanonicalName())
+                            inputOutput.getClass().getSimpleName())
             );
         }
     }

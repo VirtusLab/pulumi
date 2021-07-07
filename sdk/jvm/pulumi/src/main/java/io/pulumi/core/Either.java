@@ -1,5 +1,7 @@
 package io.pulumi.core;
 
+import io.grpc.Internal;
+
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import java.io.Serializable;
@@ -165,6 +167,15 @@ public abstract class Either<L, R> implements Serializable {
      * @return a new {@code Either<R,L>}
      */
     public abstract Either<R, L> swap();
+
+    /**
+     * For internal use only.
+     * @return either left or right cast to Object
+     */
+    @Internal
+    public Object internalUntypedLeftOrRight() {
+        return isLeft() ? left() : right();
+    }
 
     /**
      * Returns {@code true} if {@code object} is an {@code Either} instance, and either

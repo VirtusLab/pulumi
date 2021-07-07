@@ -7,7 +7,6 @@ import io.pulumi.resources.Resource;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 
 public abstract class InputOutputImpl<T, IO extends InputOutput<T, IO> & Copyable<IO>>
         implements InputOutput<T, IO>, TypedInputOutput<T>, UntypedInputOutput {
@@ -84,11 +83,10 @@ public abstract class InputOutputImpl<T, IO extends InputOutput<T, IO> & Copyabl
         return this.dataFuture.thenApply(InputOutputData::getResources);
     }
 
-    @SuppressWarnings("rawtypes")
     @Override
     @Internal
-    public CompletableFuture<InputOutputData> internalGetDataUntypedAsync() {
-        return this.dataFuture.thenApply(Function.<InputOutputData>identity());
+    public CompletableFuture<InputOutputData<Object>> internalGetDataUntypedAsync() {
+        return this.dataFuture.thenApply(inputOutputData -> inputOutputData.apply(t -> t));
     }
 
     // Static section -------

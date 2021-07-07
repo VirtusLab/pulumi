@@ -1,8 +1,10 @@
 package io.pulumi.core.internal;
 
 import io.grpc.Internal;
+import io.pulumi.core.InputOutput;
 import io.pulumi.resources.Resource;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -12,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
  * generic types.
  */
 @Internal
-interface UntypedInputOutput {
+public interface UntypedInputOutput {
     @Internal
     CompletableFuture<Set<Resource>> internalGetResourcesUntypedAsync();
 
@@ -20,7 +22,6 @@ interface UntypedInputOutput {
      * Returns an @see {@link io.pulumi.core.Output} unsafe equivalent to this,
      * except with our @see {@link InputOutputData#getValue()} casted to an Object.
      */
-    @SuppressWarnings("rawtypes")
     @Internal
-    CompletableFuture<InputOutputData> internalGetDataUntypedAsync();
+    CompletableFuture<InputOutputData<Object>> internalGetDataUntypedAsync();
 }
