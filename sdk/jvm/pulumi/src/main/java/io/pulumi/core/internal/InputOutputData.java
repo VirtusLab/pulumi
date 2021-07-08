@@ -13,9 +13,7 @@ import io.pulumi.resources.Resource;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -57,7 +55,12 @@ public class InputOutputData<T> implements Copyable<InputOutputData<T>> {
         return new InputOutputData<>(ImmutableSet.of(), null, true, false);
     }
 
-    public static <T> InputOutputData<T> unknown(@Nullable T value) {
+    @Internal
+    public static <T> InputOutputData<T> internalRaw(ImmutableSet<Resource> resources, @Nullable T value, boolean isKnown, boolean isSecret) {
+        return new InputOutputData<>(resources, value, isKnown, isSecret);
+    }
+
+    public static <T> InputOutputData<T> unknown(@Nullable T value) { // TODO: try to remove
         return new InputOutputData<>(ImmutableSet.of(), value, false, false);
     }
 
@@ -80,6 +83,10 @@ public class InputOutputData<T> implements Copyable<InputOutputData<T>> {
     @Nullable
     public T getValue() {
         return value;
+    }
+
+    public Optional<T> getValueOptional() {
+        return Optional.ofNullable(value);
     }
 
     public boolean isKnown() {

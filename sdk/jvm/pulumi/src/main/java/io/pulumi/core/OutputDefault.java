@@ -77,12 +77,12 @@ public final class OutputDefault<T> extends InputOutputImpl<T, Output<T>> implem
     }
 
     @Internal
-    private static <T> Output<T> internalUnknown(T value) {
+    private static <T> Output<T> internalUnknown(T value) { // TODO: try to remove
         return new OutputDefault<>(CompletableFuture.completedFuture(InputOutputData.unknown(value)));
     }
 
     @Internal
-    private static <T> Output<T> internalUnknown(Supplier<CompletableFuture<T>> valueFactory) {
+    private static <T> Output<T> internalUnknown(Supplier<CompletableFuture<T>> valueFactory) { // TODO: try to remove
         return Output.empty().applyFuture(ignore -> valueFactory.get());
     }
 

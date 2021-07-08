@@ -199,7 +199,7 @@ public class Serializer {
             );
         }
 
-        if (prop instanceof ComponentResource){
+        if (prop instanceof ComponentResource) {
             var componentResource = (ComponentResource) prop;
             // Component resources often can contain cycles in them. For example, an awsinfra
             // SecurityGroupRule can point a the awsinfra SecurityGroup, which in turn can point
@@ -240,7 +240,7 @@ public class Serializer {
             return serializeMapAsync(ctx, map, keepResources).thenApply(m -> (Object) m);
         }
 
-        if (prop instanceof List){
+        if (prop instanceof List) {
             var list = (List</* @Nullable */ Object>) prop;
             return serializeListAsync(ctx, list, keepResources).thenApply(l -> (Object) l);
         }
@@ -369,7 +369,7 @@ public class Serializer {
 
         var resultFutures = new HashMap<String, CompletableFuture</* @Nullable */ Object>>();
         for (var key : map.keySet()) {
-            if (!(key instanceof String)){
+            if (!(key instanceof String)) {
                 throw new UnsupportedOperationException(
                         String.format("Dictionaries are only supported with string keys:\n\t%s", ctx));
             }
@@ -423,7 +423,7 @@ public class Serializer {
             return builder.setNullValue(NullValue.NULL_VALUE).build();
         }
         if (value instanceof Integer) {
-            return builder.setNumberValue((double)(Integer) value).build();
+            return builder.setNumberValue(((Integer) value)).build();
         }
         if (value instanceof Boolean) {
             return builder.setBoolValue((Boolean) value).build();
@@ -432,7 +432,9 @@ public class Serializer {
             return builder.setStringValue((String) value).build();
         }
         if (value instanceof List) {
-            List<Value> values = ((List<Object>) value).stream().map(Serializer::createValue).collect(Collectors.<Value>toList());
+            List<Value> values = ((List<Object>) value).stream()
+                    .map(Serializer::createValue)
+                    .collect(Collectors.<Value>toList());
             return builder.setListValue(ListValue.newBuilder().addAllValues(values)).build();
         }
         if (value instanceof Map) {
@@ -449,6 +451,6 @@ public class Serializer {
             );
             return builder.setStructValue(createStruct(map)).build();
         }
-       throw new UnsupportedOperationException("Unsupported value when converting to protobuf: " + value.getClass().getSimpleName());
-    };
+        throw new UnsupportedOperationException("Unsupported value when converting to protobuf: " + value.getClass().getSimpleName());
+    }
 }

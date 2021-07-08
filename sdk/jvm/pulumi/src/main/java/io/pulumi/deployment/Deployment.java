@@ -269,7 +269,7 @@ public class Deployment implements DeploymentInternalInternal {
     }
 
 
-    private CompletableFuture<Struct> invokeRawAsync(String token, InvokeArgs args, @Nullable InvokeOptions options) {
+    private CompletableFuture<Struct> invokeRawAsync(String token, @Nullable InvokeArgs args, @Nullable InvokeOptions options) {
         var label = String.format("Invoking function: token='%s' asynchronously", token);
         Log.debug(label);
 

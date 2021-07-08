@@ -48,7 +48,7 @@ public final class InputDefault<T> extends InputImpl<T, Input<T>> implements Inp
     // Static section -----
 
     @Internal
-    static <T> Input<T> internalCreateUnknown(T value) {
+    static <T> Input<T> internalCreateUnknown(T value) { // TODO: try to remove
         return new InputDefault<>(CompletableFuture.completedFuture(InputOutputData.unknown(value)));
     }
 }
