@@ -1,5 +1,6 @@
 package io.pulumi.core.internal;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -99,6 +100,16 @@ public class InputOutputData<T> implements Copyable<InputOutputData<T>> {
 
     public boolean isEmpty() {
         return value == null;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("resources", resources)
+                .add("value", value)
+                .add("known", known)
+                .add("secret", secret)
+                .toString();
     }
 
     public static <T, U> CompletableFuture<InputOutputData<U>> apply(

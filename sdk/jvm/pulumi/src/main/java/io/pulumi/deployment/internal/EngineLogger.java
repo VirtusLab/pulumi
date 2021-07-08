@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 public interface EngineLogger {
+    int getErrorCount();
     boolean hasLoggedErrors();
 
     /**

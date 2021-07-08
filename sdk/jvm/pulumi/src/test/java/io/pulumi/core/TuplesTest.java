@@ -1,7 +1,6 @@
 package io.pulumi.core;
 
 import nl.jqno.equalsverifier.EqualsVerifier;
-import nl.jqno.equalsverifier.Warning;
 import org.junit.jupiter.api.Test;
 
 class TuplesTest {

@@ -28,6 +28,7 @@ public class Deserializer {
     }
 
     public static InputOutputData</*@Nullable*/ Object> deserialize(Value value) {
+        Objects.requireNonNull(value);
         return deserializeCore(value, v -> {
             switch (v.getKindCase()) {
                 case NUMBER_VALUE:
@@ -65,6 +66,7 @@ public class Deserializer {
         if (assetOrArchive.isPresent()) {
             return InputOutputData.internalRaw(ImmutableSet.of(), (T) assetOrArchive.get(), true, isSecret);
         }
+
         var resource = tryDeserializeResource(value);
         if (resource.isPresent()) {
             return InputOutputData.internalRaw(ImmutableSet.of(), (T) resource.get(), true, isSecret);
@@ -268,7 +270,7 @@ public class Deserializer {
 
     private static Optional<Resource> tryDeserializeResource(Value value) {
         var sig = isSpecialStruct(value);
-        if (sig.filter(s -> !Constants.SpecialResourceSig.equals(s)).isPresent()) {
+        if (sig.isEmpty() || !Constants.SpecialResourceSig.equals(sig.get())) {
             return Optional.empty();
         }
 

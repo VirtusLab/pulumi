@@ -1,7 +1,6 @@
 package io.pulumi.serialization.internal;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.gson.JsonElement;
 import com.google.protobuf.ListValue;
 import com.google.protobuf.NullValue;
@@ -425,6 +424,9 @@ public class Serializer {
         if (value instanceof Integer) {
             return builder.setNumberValue(((Integer) value)).build();
         }
+        if (value instanceof Double) {
+            return builder.setNumberValue(((Double) value)).build();
+        }
         if (value instanceof Boolean) {
             return builder.setBoolValue((Boolean) value).build();
         }
@@ -442,12 +444,15 @@ public class Serializer {
                 if (key instanceof String) {
                     return (String) key;
                 } else {
-                    throw new UnsupportedOperationException("Expected a 'String' key, got: " + key.getClass().getSimpleName());
+                    throw new UnsupportedOperationException("Expected a 'String' key, got: " + key.getClass().getCanonicalName());
                 }
             };
             Function</*@Nullable*/ Object, /*@Nullable*/ Object> valueCollector = (/*@Nullable*/ Object v) -> v;
             Map<String, Object> map = ((Map<Object, Object>) value).entrySet().stream().collect(
-                    Collectors.toMap(keyCollector, valueCollector)
+                    Collectors.toMap(
+                            keyCollector.compose(Map.Entry::getKey),
+                            valueCollector.compose(Map.Entry::getValue)
+                    )
             );
             return builder.setStructValue(createStruct(map)).build();
         }

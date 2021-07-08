@@ -77,11 +77,6 @@ public class Deployment implements DeploymentInternalInternal {
         instance.set(newInstance);
     }
 
-    @Internal
-    static DeploymentInternalInternal getInternalInstance() {
-        return getInstance().getInternal();
-    }
-
     private final DeploymentState state;
 
     protected Deployment() {
@@ -626,7 +621,8 @@ public class Deployment implements DeploymentInternalInternal {
     }
 
     @ParametersAreNonnullByDefault
-    private static class DefaultEngineLogger implements EngineLogger {
+    @VisibleForTesting
+    static class DefaultEngineLogger implements EngineLogger {
         private final Runner runner;
         private final Engine engine;
         private final Logger standardLogger;
@@ -638,8 +634,13 @@ public class Deployment implements DeploymentInternalInternal {
         private final Object logGate = new Object(); // lock target
 
         public DefaultEngineLogger(DeploymentState deployment, Logger standardLogger) {
-            this.runner = deployment.runner;
-            this.engine = deployment.engine;
+            this(deployment.runner, deployment.engine, standardLogger);
+        }
+
+        @VisibleForTesting
+        DefaultEngineLogger(Runner runner, Engine engine, Logger standardLogger) {
+            this.runner = runner;
+            this.engine = engine;
             this.standardLogger = standardLogger;
             this.errorCount = new AtomicInteger(0);
         }
@@ -647,6 +648,11 @@ public class Deployment implements DeploymentInternalInternal {
         @Override
         public boolean hasLoggedErrors() {
             return errorCount.get() > 0;
+        }
+
+        @Override
+        public int getErrorCount() {
+            return errorCount.get();
         }
 
         @Override
