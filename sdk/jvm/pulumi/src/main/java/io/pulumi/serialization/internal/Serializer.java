@@ -266,9 +266,7 @@ public class Serializer {
     }
 
     @Nullable
-    @VisibleForTesting
-    @Internal
-    Object serializeJson(String ctx, JsonElement element) {
+    private Object serializeJson(String ctx, JsonElement element) {
         Objects.requireNonNull(ctx);
         Objects.requireNonNull(element);
 

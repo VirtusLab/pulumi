@@ -1,27 +1,24 @@
 package io.pulumi.serialization.internal;
 
+import com.google.gson.JsonParser;
+import io.pulumi.core.Input;
+import io.pulumi.core.Output;
 import io.pulumi.core.internal.InputOutputData;
 import io.pulumi.deployment.DeploymentTests;
 import io.pulumi.deployment.internal.EngineLogger;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.api.*;
 
 import javax.annotation.Nullable;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
+import static org.junit.jupiter.api.DynamicContainer.dynamicContainer;
+import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
 class SerializerDeserializerTest {
     private static EngineLogger logger;
@@ -36,35 +33,10 @@ class SerializerDeserializerTest {
         DeploymentTests.printErrorCount(logger);
     }
 
-    @SuppressWarnings("unused")
-    private static Stream<Arguments> testSerializeDeserializeCommonTypes() {
-        return Stream.of(
-                /*  1 */ arguments(null, (Consumer<Object>) o -> assertThat(o).isNull()),
-                /*  2 */ arguments("test", (Consumer<Object>) o -> assertThat(o).isEqualTo("test")),
-                /*  3 */ arguments(true, (Consumer<Object>) o -> assertThat(o).isEqualTo(true)),
-                /*  4 */ arguments(false, (Consumer<Object>) o -> assertThat(o).isEqualTo(false)),
-                /*  5 */ arguments(1, (Consumer<Object>) o -> assertThat(o).isEqualTo(1.0)),
-                /*  6 */ arguments(1.0, (Consumer<Object>) o -> assertThat(o).isEqualTo(1.0)),
-                /*  7 */ arguments(List.of(), (Consumer<Object>) o -> assertThat(o).isEqualTo(List.of())),
-                /*  8 */ arguments(Map.of(), (Consumer<Object>) o -> assertThat(o).isEqualTo(Map.of())),
-                /*  9 */ arguments(List.of(1), (Consumer<Object>) o -> assertThat(o).isEqualTo(List.of(Optional.of(1.0)))),
-                /* 10 */ arguments(Map.of("1", 1), (Consumer<Object>) o -> assertThat(o).isEqualTo(Map.of("1", Optional.of(1.0)))),
-                /* 11 */ arguments(newArrayList(1, null),
-                        (Consumer<Object>) o -> assertThat(o).isEqualTo(List.of(Optional.of(1.0), Optional.empty()))),
-                /* 12 */ arguments(((Supplier<HashMap<Object, Object>>) () -> {
-                    var map = newHashMap();
-                    map.put("1", null);
-                    return map;
-                }).get(), (Consumer<Object>) o -> assertThat(o).isEqualTo(Map.of())) // we remove null entries explicitly in serialization in serializeMapAsync
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource
-    void testSerializeDeserializeCommonTypes(@Nullable Object given, Consumer<Object> expected) {
-        var serialized =
-                new Serializer(true)
-                        .serializeAsync("", given, true);
+    @Nullable
+    private Object reSerialize(@Nullable Object o) {
+        var serialized = new Serializer(true)
+                .serializeAsync("", o, true);
 
         var deserialized = serialized
                 .thenApply(Serializer::createValue)
@@ -72,6 +44,72 @@ class SerializerDeserializerTest {
                 .thenApply(InputOutputData::getValue)
                 .join();
 
-        expected.accept(deserialized);
+        return deserialized;
+    }
+
+    ;
+
+    @TestFactory
+    Stream<DynamicTest> testSerializeDeserializeCommonTypes() {
+        return Stream.of(
+                dynamicTest("1", () -> assertThat(reSerialize(null)).isNull()),
+                dynamicTest("2", () -> assertThat(reSerialize("test")).isEqualTo("test")),
+                dynamicTest("3", () -> assertThat(reSerialize(true)).isEqualTo(true)),
+                dynamicTest("4", () -> assertThat(reSerialize(false)).isEqualTo(false)),
+                dynamicTest("5", () -> assertThat(reSerialize(1)).isEqualTo(1.0)),
+                dynamicTest("6", () -> assertThat(reSerialize(1.0)).isEqualTo(1.0)),
+                dynamicTest("7", () -> assertThat(reSerialize(List.of())).isEqualTo(List.of())),
+                dynamicTest("8", () -> assertThat(reSerialize(Map.of())).isEqualTo(Map.of())),
+                dynamicTest("9", () -> assertThat(reSerialize(List.of(1))).isEqualTo(List.of(Optional.of(1.0)))),
+                dynamicTest("0", () ->
+                        assertThat(reSerialize(Map.of("1", 1))).isEqualTo(Map.of("1", Optional.of(1.0)))),
+                // we remove null entries explicitly in serialization in serializeListAsync
+                dynamicTest("1", () ->
+                        assertThat(reSerialize(newArrayList(1, null)))
+                                .isEqualTo(List.of(Optional.of(1.0), Optional.empty()))),
+                // we remove null entries explicitly in serialization in serializeMapAsync
+                dynamicTest("12", () -> {
+                    var map = newHashMap();
+                    map.put("1", null);
+                    assertThat(reSerialize(map)).isEqualTo(Map.of());
+                })
+        );
+    }
+
+    @TestFactory
+    Stream<DynamicNode> testSerializeDeserializeJson() {
+        return Stream.of(
+                dynamicTest("empty", () ->
+                        assertThat(reSerialize(JsonParser.parseString(""))).isNull()),
+                dynamicTest("empty object", () ->
+                        assertThat(reSerialize(JsonParser.parseString("{}"))).isEqualTo(Map.of())),
+                dynamicTest("empty array", () ->
+                        assertThat(reSerialize(JsonParser.parseString("[]"))).isEqualTo(List.of())),
+                dynamicContainer("complex json",
+                        Stream.of(JsonParser.parseString("{\"test\": [\"test1\", \"1\"]}"))
+                                .map(this::reSerialize)
+                                .flatMap(o -> Stream.of(
+                                        dynamicTest("not null", () -> assertThat(o).isNotNull()),
+                                        dynamicTest("is Map", () -> assertThat(o).isInstanceOf(Map.class)),
+                                        dynamicTest("contains", () -> assertThat((Map<Object, Object>) o).containsAllEntriesOf(
+                                                Map.of("test", Optional.of(
+                                                        List.of(Optional.of("test1"), Optional.of("1"))
+                                                ))
+                                        ))
+                                ))
+                )
+        );
+    }
+
+    @TestFactory
+    Stream<DynamicTest> testSerializeDeserializeInputOutput() {
+        return Stream.of(
+                dynamicTest("simple input", () ->
+                        assertThat(reSerialize(Input.of("test"))).isEqualTo("test")
+                ),
+                dynamicTest("secret output", () ->
+                        assertThat(reSerialize(Output.ofSecret("password"))).isEqualTo("password")
+                )
+        );
     }
 }
