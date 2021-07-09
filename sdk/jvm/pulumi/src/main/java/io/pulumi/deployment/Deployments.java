@@ -1,5 +1,6 @@
 package io.pulumi.deployment;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.grpc.Internal;
 import io.pulumi.deployment.internal.Runner;
@@ -13,6 +14,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class Deployments {
+
+    protected Deployments() {}
+
     /**
      * @param callback Callback that creates stack resources.
      * @see #runAsyncFuture(Supplier, StackOptions) for more details.
@@ -92,16 +96,20 @@ public class Deployments {
     // TODO
 
     // this method *must* remain marked async
-    // in order to protect the scope of the AsyncLocal Deployment.Instance we cannot elide the task (return it early)
+    // in order to protect the scope of the Deployment#nstance we cannot elide the task (return it early)
     // if the task is returned early and not awaited, than it is possible for any code that runs before the eventual await
-    // to be executed synchronously and thus have multiple calls to one of the Run methods affecting each others Deployment.Instance
+    // to be executed synchronously and thus have multiple calls to one of the run methods affecting each others Deployment#instance
     @Internal
+    @VisibleForTesting
     static CompletableFuture<Integer> internalCreateRunnerAndRunAsync(
             Supplier<Deployment> deploymentFactory,
             Function<Runner, CompletableFuture<Integer>> runAsync
     ) {
-        var deployment = deploymentFactory.get();
-        Deployment.setInstance(new DeploymentInstance(deployment));
-        return runAsync.apply(deployment.getRunner());
+        return CompletableFuture.supplyAsync(deploymentFactory)
+                .thenApply(deployment -> {
+                    Deployment.setInstance(new DeploymentInstance(deployment));
+                    return deployment.getRunner();
+                })
+                .thenCompose(runAsync);
     }
 }

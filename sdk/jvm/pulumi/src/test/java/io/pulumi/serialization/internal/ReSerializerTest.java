@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DynamicContainer.dynamicContainer;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
-class SerializerDeserializerTest {
+class ReSerializerTest {
     private static EngineLogger logger;
 
     @BeforeAll

@@ -42,11 +42,10 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static io.pulumi.core.internal.Environment.getBooleanEnvironmentVariable;
-import static io.pulumi.core.internal.Environment.getEnvironmentVariable;
+import static io.pulumi.core.internal.Environment.*;
 import static io.pulumi.core.internal.Exceptions.getStackTrace;
 
-public class Deployment implements DeploymentInternalInternal {
+public class Deployment extends Deployments implements DeploymentInternalInternal {
 
     // TODO: maybe using a state machine for the uninitialized and initialized deployment would make sense
     //       not only it need the deployment instance, but also a stack - initialized after 'run' is called
@@ -95,12 +94,12 @@ public class Deployment implements DeploymentInternalInternal {
      */
     private static DeploymentState fromEnvironment() {
         try {
-            var monitorTarget = getEnvironmentVariable("PULUMI_MONITOR");
-            var engineTarget = getEnvironmentVariable("PULUMI_ENGINE");
-            var project = getEnvironmentVariable("PULUMI_PROJECT");
-            var stack = getEnvironmentVariable("PULUMI_STACK");
+            var monitorTarget = requireEnvironmentVariable("PULUMI_MONITOR");
+            var engineTarget = requireEnvironmentVariable("PULUMI_ENGINE");
+            var project = requireEnvironmentVariable("PULUMI_PROJECT");
+            var stack = requireEnvironmentVariable("PULUMI_STACK");
             var pwd = getEnvironmentVariable("PULUMI_PWD");
-            var dryRun = getBooleanEnvironmentVariable("PULUMI_DRY_RUN");
+            var dryRun = requireBooleanEnvironmentVariable("PULUMI_DRY_RUN");
             var queryMode = getBooleanEnvironmentVariable("PULUMI_QUERY_MODE");
             var parallel = getBooleanEnvironmentVariable("PULUMI_PARALLEL");
             var tracing = getEnvironmentVariable("PULUMI_TRACING");
@@ -215,7 +214,7 @@ public class Deployment implements DeploymentInternalInternal {
     private static Logger createDefaultLogger(Class<?> clazz) {
         var logger = Logger.getLogger(clazz.getName());
         logger.setLevel(
-                Environment.getBooleanEnvironmentVariable("PULUMI_DOTNET_LOG_VERBOSE")
+                getBooleanEnvironmentVariable("PULUMI_DOTNET_LOG_VERBOSE").orElse(false)
                         ? Level.FINEST
                         : Level.SEVERE
         );
@@ -263,7 +262,6 @@ public class Deployment implements DeploymentInternalInternal {
         */
         throw new UnsupportedOperationException();
     }
-
 
     private CompletableFuture<Struct> invokeRawAsync(String token, @Nullable InvokeArgs args, @Nullable InvokeOptions options) {
         var label = String.format("Invoking function: token='%s' asynchronously", token);
@@ -402,7 +400,7 @@ public class Deployment implements DeploymentInternalInternal {
 
     @ParametersAreNonnullByDefault
     private static class DeploymentState {
-        public static final boolean DisableResourceReferences = getBooleanEnvironmentVariable("PULUMI_DISABLE_RESOURCE_REFERENCES");
+        public static final boolean DisableResourceReferences = getBooleanEnvironmentVariable("PULUMI_DISABLE_RESOURCE_REFERENCES").orElse(false);
         public static final boolean ExcessiveDebugOutput = false;
 
         public final Deployment.Config config;
@@ -833,9 +831,9 @@ public class Deployment implements DeploymentInternalInternal {
         private static ImmutableMap<String, String> parseConfig() {
             var parsedConfig = ImmutableMap.<String, String>builder();
             var envConfig = Environment.getEnvironmentVariable(ConfigEnvKey);
-            if (envConfig != null) {
+            if (envConfig.isPresent()) {
                 Gson gson = new Gson();
-                var envObject = gson.fromJson(envConfig, JsonElement.class);
+                var envObject = gson.fromJson(envConfig.get(), JsonElement.class);
                 for (var prop : envObject.getAsJsonObject().entrySet()) {
                     parsedConfig.put(cleanKey(prop.getKey()), prop.getValue().toString());
                 }
@@ -847,9 +845,9 @@ public class Deployment implements DeploymentInternalInternal {
         private static ImmutableSet<String> parseConfigSecretKeys() {
             var parsedConfigSecretKeys = ImmutableSet.<String>builder();
             var envConfigSecretKeys = Environment.getEnvironmentVariable(ConfigSecretKeysEnvKey);
-            if (envConfigSecretKeys != null) {
+            if (envConfigSecretKeys.isPresent()) {
                 Gson gson = new Gson();
-                var envObject = gson.fromJson(envConfigSecretKeys, JsonElement.class);
+                var envObject = gson.fromJson(envConfigSecretKeys.get(), JsonElement.class);
                 for (var element : envObject.getAsJsonArray()) {
                     parsedConfigSecretKeys.add(element.getAsString());
                 }
