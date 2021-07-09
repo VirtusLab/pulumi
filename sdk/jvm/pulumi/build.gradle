@@ -1,6 +1,13 @@
 plugins {
     id("java-library")
+    id("maven-publish")
     id("com.google.protobuf") version "0.8.16"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
 }
 
 repositories {
@@ -67,4 +74,23 @@ sourceSets {
 
 test {
     useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            groupId = 'io.pulumi'
+            artifactId = 'pulumi'
+            version = project.version
+
+            from components.java
+        }
+        // TODO pom
+    }
+}
+
+javadoc {
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
 }

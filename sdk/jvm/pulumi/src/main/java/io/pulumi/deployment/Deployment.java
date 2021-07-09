@@ -76,6 +76,12 @@ public class Deployment extends Deployments implements DeploymentInternalInterna
         instance.set(newInstance);
     }
 
+    @Internal
+    @VisibleForTesting
+    static void internalUnsafeDestroyInstance() {
+        instance.set(null);
+    }
+
     private final DeploymentState state;
 
     protected Deployment() {

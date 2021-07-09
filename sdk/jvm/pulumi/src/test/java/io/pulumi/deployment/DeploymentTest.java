@@ -2,15 +2,22 @@ package io.pulumi.deployment;
 
 import io.pulumi.deployment.internal.Engine;
 import io.pulumi.deployment.internal.Monitor;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
+import static io.pulumi.deployment.DeploymentTests.cleanupDeploymentMocks;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
 
 public class DeploymentTest {
+
+    @AfterAll
+    static void cleanup() {
+        cleanupDeploymentMocks();
+    }
 
     @Test
     void testDeploymentInstancePropertyIsProtected() {

@@ -39,13 +39,15 @@ public class DeploymentTests {
         when(mock.getRunner()).thenReturn(runner);
         when(mock.getLogger()).thenReturn(logger);
 
-        DeploymentTests.setInstance(new DeploymentInstance(mock));
+        Deployment.setInstance(new DeploymentInstance(mock));
 
         return logger;
     }
 
-    public static void setInstance(DeploymentInstance instance) {
-        Deployment.setInstance(instance);
+    public static void cleanupDeploymentMocks() {
+        // ensure we don't get the error:
+        //   java.lang.IllegalStateException: Deployment.getInstance should only be set once at the beginning of a 'run' call.
+        Deployment.internalUnsafeDestroyInstance(); // FIXME: how to avoid this?
     }
 
     public static void printErrorCount(EngineLogger logger) {

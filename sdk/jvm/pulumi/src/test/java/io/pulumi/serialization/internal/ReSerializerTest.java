@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
+import static io.pulumi.deployment.DeploymentTests.cleanupDeploymentMocks;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.DynamicContainer.dynamicContainer;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
@@ -26,6 +27,11 @@ class ReSerializerTest {
     @BeforeAll
     public static void mockSetup() {
         logger = DeploymentTests.setupDeploymentMocks();
+    }
+
+    @AfterAll
+    static void cleanup() {
+        cleanupDeploymentMocks();
     }
 
     @AfterEach
@@ -46,8 +52,6 @@ class ReSerializerTest {
 
         return deserialized;
     }
-
-    ;
 
     @TestFactory
     Stream<DynamicTest> testSerializeDeserializeCommonTypes() {

@@ -34,7 +34,7 @@ public class Deployments {
      * @see #runAsyncFuture(Supplier, StackOptions) for more details.
      */
     public static CompletableFuture<Integer> runAsync(Supplier<Map<String, Optional<Object>>> callback) {
-        return runAsyncFuture(() -> CompletableFuture.completedFuture(callback.get()));
+        return runAsyncFuture(() -> CompletableFuture.supplyAsync(callback));
     }
 
     /**
