@@ -28,20 +28,20 @@ public class TestOptions {
      * Project name. Defaults to <b>"project"</b> if not specified.
      */
     public String getProjectName() {
-        return projectName;
+        return this.projectName;
     }
 
     /**
      * Stack name. Defaults to <b>"stack"</b> if not specified.
      */
     public String getStackName() {
-        return stackName;
+        return this.stackName;
     }
 
     /**
      * Whether the test runs in Preview mode. Defaults to <b>true</b> if not specified.
      */
     public boolean isPreview() {
-        return preview;
+        return this.preview;
     }
 }

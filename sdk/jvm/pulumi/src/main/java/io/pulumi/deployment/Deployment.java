@@ -106,6 +106,8 @@ public class Deployment implements DeploymentInternalInternal {
             var tracing = getEnvironmentVariable("PULUMI_TRACING");
             // TODO what to do with all the unused envvars?
 
+            var config = new Deployment.Config();
+
             // FIXME: use different logger, not j.u.l!
             var standardLogger = Logger.getLogger(Deployment.class.getName());
 
@@ -117,7 +119,7 @@ public class Deployment implements DeploymentInternalInternal {
             var monitor = new GrpcMonitor(monitorTarget);
             standardLogger.log(Level.FINEST, "Created deployment monitor");
 
-            return new DeploymentState(standardLogger, project, stack, dryRun, engine, monitor);
+            return new DeploymentState(config, standardLogger, project, stack, dryRun, engine, monitor);
         } catch (NullPointerException ex) {
             throw new IllegalStateException(
                     "Program run without the Pulumi engine available; re-run using the `pulumi` CLI", ex);
@@ -152,8 +154,9 @@ public class Deployment implements DeploymentInternalInternal {
         var project = options.getProjectName();
         var stack = options.getStackName();
         var dryRun = options.isPreview();
+        var config = new Deployment.Config();
         return new Deployment(
-                new DeploymentState(standardLogger, project, stack, dryRun, engine, monitor)
+                new DeploymentState(config, standardLogger, project, stack, dryRun, engine, monitor)
         );
     }
 
@@ -184,14 +187,12 @@ public class Deployment implements DeploymentInternalInternal {
         return this.state.runner;
     }
 
-    private Config config; // TODO: move in a more appropriate place
-
     public Optional<String> getConfig(String fullKey) {
-        return this.config.getConfig(fullKey);
+        return this.state.config.getConfig(fullKey);
     }
 
     public boolean isConfigSecret(String fullKey) {
-        return this.config.isConfigSecret(fullKey);
+        return this.state.config.isConfigSecret(fullKey);
     }
 
     @Nullable
@@ -404,6 +405,7 @@ public class Deployment implements DeploymentInternalInternal {
         public static final boolean DisableResourceReferences = getBooleanEnvironmentVariable("PULUMI_DISABLE_RESOURCE_REFERENCES");
         public static final boolean ExcessiveDebugOutput = false;
 
+        public final Deployment.Config config;
         public final String projectName;
         public final String stackName;
         public final boolean isDryRun;
@@ -413,6 +415,7 @@ public class Deployment implements DeploymentInternalInternal {
         public final EngineLogger logger;
 
         private DeploymentState(
+                Deployment.Config config,
                 Logger standardLogger,
                 String projectName,
                 String stackName,
@@ -420,6 +423,7 @@ public class Deployment implements DeploymentInternalInternal {
                 Engine engine,
                 Monitor monitor) {
             Objects.requireNonNull(standardLogger);
+            this.config = Objects.requireNonNull(config);
             this.projectName = Objects.requireNonNull(projectName);
             this.stackName = Objects.requireNonNull(stackName);
             this.isDryRun = isDryRun;
