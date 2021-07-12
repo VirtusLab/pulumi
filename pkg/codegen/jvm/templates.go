@@ -52,6 +52,7 @@ repositories {
 
 dependencies {
   testImplementation("junit:junit:4.13.1")
+  implementation("com.google.code.gson:gson:2.7")
   implementation("com.google.code.findbugs:jsr305:3.0.2")
   implementation files("../../../../pulumi/sdk/jvm/pulumi/build/libs/pulumi.jar")
 }
@@ -71,6 +72,13 @@ import java.util.Optional;
 import java.util.Set;
 
 public class Utilities {
+  public static <T> Optional<T> fallbackOptional(Optional<T> opt, Optional<T> fallback) {
+    if (opt.isPresent()) {
+      return opt;
+    } else {
+      return fallback;
+    }
+  }
 	public static String version = formatVersion(Utilities.class.getResourceAsStream("/version.txt").toString());
 	private static String formatVersion(String versionString) {
 		String trimmed = versionString.trim();
