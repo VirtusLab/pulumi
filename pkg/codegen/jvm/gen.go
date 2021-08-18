@@ -71,7 +71,7 @@ func computePropertyNames(props []*schema.Property, names map[*schema.Property]s
 	}
 }
 
-func title(s string) string {
+func Title(s string) string {
 	if s == "" {
 		return ""
 	}
@@ -84,20 +84,20 @@ func packageName(packages map[string]string, name string) string {
 		return pkg
 	}
 
-	return title(name)
+	return Title(name)
 }
 
 func tokenToName(tok string) string {
 	components := strings.Split(tok, ":")
 	contract.Assertf(len(components) == 3, "malformed token %v", tok)
-	return title(components[2])
+	return Title(components[2])
 }
 
 func (mod *modContext) tokenToPackage(tok string, qualifier string) string {
 	components := strings.Split(tok, ":")
 	contract.Assertf(len(components) == 3, "malformed token %v", tok)
 
-	pkg, pkgName := "io.pulumi" + packageName(mod.packages, components[0]), mod.pkg.TokenToModule(tok)
+	pkg, pkgName := "io.pulumi"+packageName(mod.packages, components[0]), mod.pkg.TokenToModule(tok)
 
 	// TODO: check if k8s compat mode
 
@@ -112,7 +112,7 @@ func (mod *modContext) tokenToPackage(tok string, qualifier string) string {
 	return typ
 }
 
-func(mod *modContext) details(t *schema.ObjectType) *typeDetails {
+func (mod *modContext) details(t *schema.ObjectType) *typeDetails {
 	details, ok := mod.typeDetails[t]
 	if !ok {
 		details = &typeDetails{}
@@ -126,10 +126,10 @@ func (mod *modContext) propertyName(p *schema.Property) string {
 	if n, ok := mod.propertyNames[p]; ok {
 		return n
 	}
-	return title(p.Name)
+	return Title(p.Name)
 }
 
-func(mod *modContext) typeName(t *schema.ObjectType, state, input, args bool) string {
+func (mod *modContext) typeName(t *schema.ObjectType, state, input, args bool) string {
 	name := tokenToName(t.Token)
 	if state {
 		return name + "GetArgs"
@@ -188,14 +188,14 @@ func (mod *modContext) typeString(t schema.Type, qualifier string, input, state,
 			}
 
 			namingCtx = &modContext{
-				pkg: extPkg,
-				packages: info.Packages,
+				pkg:           extPkg,
+				packages:      info.Packages,
 				compatibility: info.Compatibility,
 			}
 		}
 
 		typ = namingCtx.tokenToPackage(t.Token, qualifier)
-		if(typ == namingCtx.packageName && qualifier == "") || typ == namingCtx.packageName+"."+qualifier {
+		if (typ == namingCtx.packageName && qualifier == "") || typ == namingCtx.packageName+"."+qualifier {
 			typ = qualifier
 		}
 
@@ -219,8 +219,8 @@ func (mod *modContext) typeString(t schema.Type, qualifier string, input, state,
 				}
 
 				namingCtx = &modContext{
-					pkg: extPkg,
-					packages: info.Packages,
+					pkg:           extPkg,
+					packages:      info.Packages,
 					compatibility: info.Compatibility,
 				}
 			}
@@ -377,7 +377,7 @@ func (mod *modContext) genConfig(variables []*schema.Property) (string, error) {
 	return w.String(), nil
 }
 
-func(mod *modContext) gen(fs fs) error {
+func (mod *modContext) gen(fs fs) error {
 	pkgComponents := strings.Split(mod.packageName, ".")
 	if len(pkgComponents) > 0 {
 		pkgComponents = pkgComponents[2:]

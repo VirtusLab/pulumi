@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pulumi/pulumi/pkg/v3/codegen/jvm"
 	"io"
 	"os"
 	"strings"
@@ -422,6 +423,8 @@ func newImportCmd() *cobra.Command {
 			switch proj.Runtime.Name() {
 			case "dotnet":
 				programGenerator = dotnet.GenerateProgram
+			case "jvm":
+				programGenerator = jvm.GenerateProgram
 			case "go":
 				programGenerator = gogen.GenerateProgram
 			case "nodejs":
