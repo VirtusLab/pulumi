@@ -69,7 +69,9 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
         this(fromEnvironment());
     }
 
-    // TODO private Deployment(InlineDeploymentSettings settings)
+    DeploymentImpl(InlineDeploymentSettings settings) {
+        this(from(settings));
+    }
 
     @Internal
     @VisibleForTesting
@@ -122,6 +124,32 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
             throw new IllegalStateException(
                     "Program run without the Pulumi engine available; re-run using the `pulumi` CLI", ex);
         }
+    }
+
+    private static DeploymentState from(InlineDeploymentSettings settings) {
+        if (Strings.isEmptyOrNull(settings.getEngineAddr())
+                || Strings.isEmptyOrNull(settings.getEngineAddr())
+                || Strings.isEmptyOrNull(settings.getProject())
+                || Strings.isEmptyOrNull(settings.getStack())) {
+            throw new UnsupportedOperationException(
+                    "Inline execution was not provided the necessary parameters to run the Pulumi engine.");
+        }
+
+        var config = new Config(settings.getConfig(), settings.getConfigSecretKeys());
+        var standardLogger = Logger.getLogger(DeploymentImpl.class.getName());
+        standardLogger.setLevel(GlobalLogging.GlobalLevel);
+
+        standardLogger.log(Level.FINEST, "Creating deployment engine");
+        var engine = new GrpcEngine(settings.getEngineAddr());
+        standardLogger.log(Level.FINEST, "Created deployment engine");
+
+        standardLogger.log(Level.FINEST, "Creating deployment monitor");
+        var monitor = new GrpcMonitor(settings.getMonitorAddr());
+        standardLogger.log(Level.FINEST, "Created deployment monitor");
+
+        return new DeploymentState(
+            config, standardLogger, settings.getProject(), settings.getStack(), settings.isDryRun(), engine, monitor
+        );
     }
 
     @Override
@@ -1281,10 +1309,6 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
             this.isDryRun = isDryRun;
             this.engine = Objects.requireNonNull(engine);
             this.monitor = Objects.requireNonNull(monitor);
-            postInit();
-        }
-
-        private void postInit() {
             this.logger = new DefaultEngineLogger(this, standardLogger);
             this.runner = new DefaultRunner(this, standardLogger);
         }
