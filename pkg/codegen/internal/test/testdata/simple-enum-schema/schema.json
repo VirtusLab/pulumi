@@ -257,6 +257,11 @@
         "typescript": "^3.7.0"
       }
     },
+    "jvm": {
+      "packages": {
+        "tree/v1": "tree.v1"
+      }
+    },
     "python": {
       "moduleNameOverrides": {
         "tree/v1": "tree/v1"

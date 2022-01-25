@@ -33,6 +33,7 @@ import (
 	"github.com/pulumi/pulumi/pkg/v3/codegen/dotnet"
 	gogen "github.com/pulumi/pulumi/pkg/v3/codegen/go"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/importer"
+	"github.com/pulumi/pulumi/pkg/v3/codegen/jvm"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/nodejs"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/pcl"
 	"github.com/pulumi/pulumi/pkg/v3/codegen/python"
@@ -436,6 +437,8 @@ func newImportCmd() *cobra.Command {
 			switch proj.Runtime.Name() {
 			case "dotnet":
 				programGenerator = dotnet.GenerateProgram
+			case "jvm":
+				programGenerator = jvm.GenerateProgram
 			case "go":
 				programGenerator = gogen.GenerateProgram
 			case "nodejs":
