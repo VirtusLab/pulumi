@@ -1278,7 +1278,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
     @VisibleForTesting
     static class DeploymentState {
         public static final boolean DisableResourceReferences = getBooleanEnvironmentVariable("PULUMI_DISABLE_RESOURCE_REFERENCES").or(false);
-        public static final boolean ExcessiveDebugOutput = false;
+        public static final boolean ExcessiveDebugOutput = getBooleanEnvironmentVariable("PULUMI_EXCESSIVE_DEBUG_OUTPUT").or(false);
 
         public final DeploymentImpl.Config config;
         public final String projectName;
