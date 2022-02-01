@@ -105,9 +105,9 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
 
         try {
             var monitorTarget = getEnvironmentVariable("PULUMI_MONITOR").orThrow(startErrorSupplier);
-            var engineTarget = getEnvironmentVariable("PULUMI_ENGINE").orThrow(startErrorSupplier);;
-            var project = getEnvironmentVariable("PULUMI_PROJECT").orThrow(startErrorSupplier);;
-            var stack = getEnvironmentVariable("PULUMI_STACK").orThrow(startErrorSupplier);;
+            var engineTarget = getEnvironmentVariable("PULUMI_ENGINE").orThrow(startErrorSupplier);
+            var project = getEnvironmentVariable("PULUMI_PROJECT").orThrow(startErrorSupplier);
+            var stack = getEnvironmentVariable("PULUMI_STACK").orThrow(startErrorSupplier);
 //            var pwd = getEnvironmentVariable("PULUMI_PWD");
             var dryRun = getBooleanEnvironmentVariable("PULUMI_DRY_RUN").orThrow(startErrorSupplier);
 //            var queryMode = getBooleanEnvironmentVariable("PULUMI_QUERY_MODE");
@@ -538,7 +538,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
 
                                                                                 // TODO: C# had the following logic here:
                                                                                 //          "If only the Provider opt is set, move it to the Providers list for further processing."
-                                                                                //       But the ComponentResourceOptions should guarantee the desired semantics.
+                                                                                //       But our ComponentResourceOptions should guarantee the desired semantics.
                                                                                 //       It would be great to add more tests and maybe remove 'provider' in favour of 'providers' only
 
                                                                                 providerFutures = CompletableFutures.allOf(

@@ -62,7 +62,7 @@ class ResourceOptionsTest {
                                 List.of(),
                                 "urn"
                         )
-                ) // FIXME
+                ) // FIXME: add more cases
         );
     }
 

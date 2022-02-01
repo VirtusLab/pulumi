@@ -6,7 +6,7 @@ import io.pulumi.resources.Resource;
 import javax.annotation.Nullable;
 
 /**
- * Logging functions that can be called from a .NET application that will be logged to the {@code Pulumi} log stream.
+ * Logging functions that can be called from a Java application that will be logged to the {@code Pulumi} log stream.
  * These events will be printed in the terminal while the Pulumi app runs,
  * and will be available from the CLI and Web console afterwards.
  */

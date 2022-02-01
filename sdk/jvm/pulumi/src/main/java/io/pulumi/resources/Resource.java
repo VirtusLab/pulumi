@@ -186,6 +186,7 @@ public abstract class Resource {
                     var pkg = typeComponents[0];
                     thisProviders.put(pkg, provider);
                 }
+                // TODO: why do we silently ignore invalid type?
             }
         } else {
             // Note: we've checked above that at most one of options.provider or options.providers is set.
@@ -228,6 +229,7 @@ public abstract class Resource {
     static public ProviderResource internalGetProvider(Resource resource, String moduleMember) {
         var memComponents = moduleMember.split(":");
         if (memComponents.length != 3) {
+            // TODO: why do we silently ignore invalid type?
             return null;
         }
 
