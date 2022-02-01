@@ -17,7 +17,7 @@ build_plugin::
 
 build:: build_package build_plugin
 
-install_package:: build_package # TODO
+install_package:: build_package
 	gradle -Pversion=${VERSION} publishToMavenLocal
 
 install_plugin:: build_plugin
@@ -25,7 +25,8 @@ install_plugin:: build_plugin
 
 install:: install_package install_plugin
 
-jvm_test:: install # TODO
+jvm_test:: install
+	gradle -Pversion=${VERSION} test
 
 test_fast:: jvm_test
 	$(GO_TEST_FAST) ${PROJECT_PKGS}
