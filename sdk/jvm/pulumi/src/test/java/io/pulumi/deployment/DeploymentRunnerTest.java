@@ -62,7 +62,7 @@ public class DeploymentRunnerTest {
         public final Output<Integer> slowOutput;
 
         public TerminatesEarlyOnExceptionStack() {
-            var delayed = CompletableFuture.delayedExecutor(1000L, TimeUnit.MILLISECONDS);
+            var delayed = CompletableFuture.delayedExecutor(60L, TimeUnit.SECONDS);
             var task = CompletableFuture
                     .supplyAsync(() -> {
                         throw new RunException("Deliberate test error");
