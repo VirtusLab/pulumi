@@ -1227,6 +1227,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
 
             if (customOpts) {
                 request.addAllAdditionalSecretOutputs(((CustomResourceOptions) options).getAdditionalSecretOutputs());
+                request.addAllReplaceOnChanges(options.getReplaceOnChanges());
             }
 
             request.addAllIgnoreChanges(options.getIgnoreChanges());
