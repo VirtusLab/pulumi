@@ -1,22 +1,32 @@
 package io.pulumi.deployment;
 
+import io.pulumi.deployment.internal.CountingLogger;
 import io.pulumi.deployment.internal.Engine;
 import pulumirpc.EngineOuterClass;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class MockEngine implements Engine {
+public class MockEngine implements Engine, CountingLogger {
 
     @Nullable
     private String rootResourceUrn;
     private final Object rootResourceUrnLock = new Object();
 
-    public final List<String> errors = Collections.synchronizedList(new LinkedList<>());
+    public final Queue<String> errors = new ConcurrentLinkedQueue<>();
+
+    @Override
+    public int getErrorCount() {
+        return errors.size();
+    }
+
+    @Override
+    public boolean hasLoggedErrors() {
+        return !errors.isEmpty();
+    }
 
     @Override
     public CompletableFuture<Void> logAsync(EngineOuterClass.LogRequest request) {
