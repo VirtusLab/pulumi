@@ -64,6 +64,7 @@ public class DeploymentRunnerTest {
 
     @Test
     void testLogsTaskDescriptions() {
+        // The test requires Level.FINEST
         var logger = InMemoryLogger.getLogger(Level.FINEST, "DeploymentRunnerTest#testLogsTaskDescriptions");
 
         var mock = DeploymentTests.DeploymentMockBuilder.builder()

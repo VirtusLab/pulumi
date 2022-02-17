@@ -50,7 +50,9 @@ public class MockMonitor implements Monitor {
         if ("pulumi:pulumi:getResource".equals(request.getTok())) {
             var urn = (String) args.get("urn");
             Map<String, Object> registeredResource = Maps.tryGetValue(registeredResources, urn)
-                    .orElseThrow(() -> new IllegalArgumentException(String.format("Unknown resource '%s'", urn)));
+                    .orElseThrow(() -> new IllegalArgumentException(String.format(
+                            "Unknown resource '%s', got: %s", urn, registeredResources
+                    )));
             toBeSerialized = CompletableFuture.completedFuture(registeredResource);
         } else {
             toBeSerialized = mocks.callAsync(new MockCallArgs(request.getTok(), args, request.getProvider()));

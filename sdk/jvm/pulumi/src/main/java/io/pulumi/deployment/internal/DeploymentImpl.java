@@ -38,7 +38,6 @@ import pulumirpc.Resource.SupportsFeatureRequest;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.*;
@@ -101,8 +100,6 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
         this.registerResource = new RegisterResource(this.log, this.prepare, state.monitor);
         this.readOrRegisterResource = new ReadOrRegisterResource(state.runner, this.invoke, this.readResource, this.registerResource, state.isDryRun);
         this.registerResourceOutputs = new RegisterResourceOutputs(this.log, state.runner, state.monitor, this.featureSupport, this.serialization);
-
-        this.state.standardLogger.log(Level.INFO, "Deployment initialized.");
     }
 
     /**
@@ -160,11 +157,6 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
     @Override
     public boolean isDryRun() {
         return this.state.isDryRun;
-    }
-
-    @InternalUse
-    public EngineLogger getLogger() {
-        return this.state.logger;
     }
 
     @InternalUse
@@ -1667,8 +1659,8 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
             }
             return runAsync(() -> {
                 try {
-                    return stackType.getDeclaredConstructor().newInstance();
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    return stackType.newInstance();
+                } catch (InstantiationException | IllegalAccessException e) {
                     throw new IllegalArgumentException(String.format(
                             "Couldn't create an instance of the stack type: '%s', error: %s",
                             stackType.getTypeName(), e

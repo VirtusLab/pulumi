@@ -15,13 +15,15 @@ public class DeploymentDefaultEngineLoggerTest {
         var log1 = new DefaultEngineLogger(
                 log, () -> null, () -> null
         );
-        log1.infoAsync("degraded runner but working");
+        log1.infoAsync("test degraded runner but working").join();
 
         var log2 = new DefaultEngineLogger(
                 log, () -> mock(Runner.class), () -> null
         );
-        log2.infoAsync("degraded engine but working");
+        log2.infoAsync("test degraded engine but working").join();
 
+        // this test fails on CI with the last element missing without the 'join()'s
+        assertThat(log.getMessages()).hasSize(4);
         assertThat(log.getMessages()).haveAtLeastOne(containsString("Degraded functionality [DefaultEngineLogger]: async logging is unavailable because of no Runner"));
         assertThat(log.getMessages()).haveAtLeastOne(containsString("Degraded functionality [DefaultEngineLogger]: async logging is unavailable because of no Engine"));
     }

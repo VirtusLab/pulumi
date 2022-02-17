@@ -100,7 +100,7 @@ public class DeploymentTests {
             return this.runner.runAsync(stackType)
                     .thenApply(ignore -> new TestAsyncResult(
                             ImmutableList.copyOf(mockMonitor.resources),
-                            mockEngine.errors.stream()
+                            mockEngine.getErrors().stream()
                                     .map(RunException::new).collect(toImmutableList())
                     ));
         }
@@ -117,7 +117,7 @@ public class DeploymentTests {
             return this.runner.runAsyncFuture(callback)
                     .thenApply(ignore -> new TestAsyncResult(
                             ImmutableList.copyOf(mockMonitor.resources),
-                            mockEngine.errors.stream()
+                            mockEngine.getErrors().stream()
                                     .map(RunException::new)
                                     .collect(toImmutableList())
                     ));

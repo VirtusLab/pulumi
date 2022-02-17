@@ -1,7 +1,7 @@
 package io.pulumi.deployment.internal;
 
 import javax.annotation.Nullable;
-import java.util.List;
+import java.util.Collection;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Level;
@@ -39,8 +39,8 @@ public final class InMemoryLogger extends Logger implements CountingLogger {
         return (InMemoryLogger) logger;
     }
 
-    public List<String> getMessages() {
-        return List.copyOf(messages);
+    public Collection<String> getMessages() {
+        return messages;
     }
 
     @Override
