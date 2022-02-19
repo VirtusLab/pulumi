@@ -4,10 +4,13 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import io.pulumi.core.Either;
 import io.pulumi.core.internal.annotations.InternalUse;
 
 import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.Arrays;
@@ -23,6 +26,52 @@ public class Reflection {
 
     private Reflection() {
         throw new UnsupportedOperationException("static class");
+    }
+
+    public static <T> Optional<T> defaultValue(Class<T> type) {
+        return Optional.ofNullable(defaultNullableValue(type));
+    }
+
+    @Nullable
+    public static <T> T defaultNullableValue(Class<T> type) {
+        Objects.requireNonNull(type);
+        if (boolean.class.isAssignableFrom(type) || Boolean.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) Boolean.valueOf(false);
+        }
+        if (int.class.isAssignableFrom(type) || Integer.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) Integer.valueOf(0);
+        }
+        if (long.class.isAssignableFrom(type) || Long.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) Long.valueOf(0L);
+        }
+        if (double.class.isAssignableFrom(type) || Double.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) Double.valueOf(0.0);
+        }
+        if (char.class.isAssignableFrom(type) || Character.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) Character.valueOf('\0');
+        }
+        if (String.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) "";
+        }
+        if (Optional.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) Optional.empty();
+        }
+        if (JsonElement.class.isAssignableFrom(type)) {
+            //noinspection unchecked
+            return (T) JsonNull.INSTANCE;
+        }
+        if (type.isEnum()) {
+            //noinspection RedundantCast
+            return (T) type.getEnumConstants()[0];
+        }
+        return null;
     }
 
     public static ImmutableList<Field> allFields(Class<?> type) {

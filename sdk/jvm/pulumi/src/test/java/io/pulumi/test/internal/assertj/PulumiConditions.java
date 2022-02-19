@@ -12,4 +12,8 @@ public class PulumiConditions {
     public static HamcrestCondition<String> startsWith(String s) {
         return new HamcrestCondition<>(CoreMatchers.startsWith(s));
     }
+
+    public static HamcrestCondition<String> endsWith(String s) {
+        return new HamcrestCondition<>(CoreMatchers.endsWith(s));
+    }
 }

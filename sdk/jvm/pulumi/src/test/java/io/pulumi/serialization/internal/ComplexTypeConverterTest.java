@@ -3,6 +3,8 @@ package io.pulumi.serialization.internal;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.pulumi.core.internal.annotations.OutputCustomType;
+import io.pulumi.deployment.internal.DeploymentTests;
+import io.pulumi.deployment.internal.InMemoryLogger;
 import io.pulumi.serialization.internal.ConverterTests.ContainerSize;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +15,7 @@ import java.util.Optional;
 import static io.pulumi.serialization.internal.ConverterTests.ContainerColor;
 import static io.pulumi.serialization.internal.ConverterTests.ContainerColor.Blue;
 import static io.pulumi.serialization.internal.ConverterTests.serializeToValueAsync;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ComplexTypeConverterTest {
@@ -49,6 +52,8 @@ class ComplexTypeConverterTest {
 
     @Test
     void testTestComplexType1() {
+        var log = DeploymentTests.mockLog();
+
         var serialized = serializeToValueAsync(ImmutableMap.<String, Object>builder()
                 .put("s", "str")
                 .put("b", true)
@@ -61,7 +66,8 @@ class ComplexTypeConverterTest {
                 .put("color", "blue")
                 .build()
         ).join();
-        var data = Converter.convertValue(
+        var converter = new Converter(log);
+        var data = converter.convertValue(
                 "ComplexTypeConverterTest", serialized, ComplexType1.class
         );
 
@@ -89,8 +95,8 @@ class ComplexTypeConverterTest {
         public ComplexType2(
                 ComplexType1 c,
                 ImmutableList<ComplexType1> c2List,
-                ImmutableMap<String, ComplexType1> c2Map)
-        {
+                ImmutableMap<String, ComplexType1> c2Map
+        ) {
             this.c = c;
             this.c2List = c2List;
             this.c2Map = c2Map;
@@ -99,6 +105,7 @@ class ComplexTypeConverterTest {
 
     @Test
     void testTestComplexType2() {
+        var log = DeploymentTests.mockLog();
         var serialized = serializeToValueAsync(ImmutableMap.<String, Object>builder()
                 .put("c", ImmutableMap.<String, Object>builder()
                         .put("s", "str1")
@@ -133,14 +140,15 @@ class ComplexTypeConverterTest {
                                 .put("d", 3.3)
                                 .put("list", List.of(true, false))
                                 .put("map", Map.of("k", 3))
-                                .put("obj", Map.of( "o", 5.5))
+                                .put("obj", Map.of("o", 5.5))
                                 .put("size", 6)
                                 .put("color", "blue")
                                 .build()
                 ))
                 .build()
         ).join();
-        var data = Converter.convertValue(
+        var converter = new Converter(log);
+        var data = converter.convertValue(
                 "ComplexTypeConverterTest", serialized, ComplexType2.class
         ).getValueNullable();
 
@@ -185,5 +193,56 @@ class ComplexTypeConverterTest {
         assertThat((Map<String, Object>) value.obj).containsAllEntriesOf(Map.of("o", Optional.of(5.5))); // C# didn't have Optional, it has Nullable type.
         assertThat(value.size).isEqualTo(ContainerSize.SixInch);
         assertThat(value.color).isEqualTo(ContainerColor.Blue);
+    }
+
+    @Test
+    void testComplexTypeTypeMismatches() {
+        var logger = InMemoryLogger.getLogger("ComplexTypeConverterTest#testComplexTypeTypeMismatches");
+        var log = DeploymentTests.mockLog(logger);
+
+        var serialized = serializeToValueAsync(ImmutableMap.<String, Object>builder()
+                .put("s", 24)
+                .put("b", "hi")
+                .put("i", "string")
+                .put("d", true)
+                .put("list", ImmutableList.of(true, 99, false, "hello"))
+                .put("map", ImmutableMap.of("k", 10, "v", "hello"))
+                .put("obj", "test")
+                .put("size", "bigger")
+                .put("color", true)
+                .build()
+        ).join();
+        var converter = new Converter(log);
+        var data = converter.convertValue(
+                "ComplexTypeConverterTest", serialized, ComplexType1.class
+        );
+
+        assertThat(data.getValueNullable()).isNotNull();
+        assertThat(data.getValueNullable().s).isNull();
+        assertThat(data.getValueNullable().b).isFalse();
+        assertThat(data.getValueNullable().i).isEqualTo(0);
+        assertThat(data.getValueNullable().d).isEqualTo(0.0);
+        assertThat(data.getValueNullable().list).hasSameElementsAs(ImmutableList.of(false, false, true, false));
+        assertThat(data.getValueNullable().map).containsAllEntriesOf(ImmutableMap.of("k", 10, "v", 0));
+        assertThat(data.getValueNullable().obj).isEqualTo("test");
+        assertThat(data.getValueNullable().size).isEqualTo(ContainerSize.values()[0]);
+        assertThat(data.getValueNullable().color).isEqualTo(ContainerColor.values()[0]);
+
+        assertThat(data.isKnown()).isTrue();
+        //---
+        var warnings = logger.getMessages().stream()
+                .filter(s -> s.startsWith("WARNING"))
+                .collect(toList());
+
+        assertThat(warnings).hasSize(9);
+        assertThat(warnings.get(0)).endsWith("$ComplexType1(s); Expected 'java.lang.String' but got 'java.lang.Double' while deserializing.");
+        assertThat(warnings.get(1)).endsWith("$ComplexType1(b); Expected 'boolean' but got 'java.lang.String' while deserializing.");
+        assertThat(warnings.get(2)).endsWith("$ComplexType1(i); Expected 'java.lang.Double' but got 'java.lang.String' while deserializing.");
+        assertThat(warnings.get(3)).endsWith("$ComplexType1(d); Expected 'double' but got 'java.lang.Boolean' while deserializing.");
+        assertThat(warnings.get(4)).endsWith("ImmutableList[1]; Expected 'java.lang.Boolean' but got 'java.lang.Double' while deserializing.");
+        assertThat(warnings.get(5)).endsWith("ImmutableList[3]; Expected 'java.lang.Boolean' but got 'java.lang.String' while deserializing.");
+        assertThat(warnings.get(6)).endsWith("ImmutableMap[v]; Expected 'java.lang.Double' but got 'java.lang.String' while deserializing.");
+        assertThat(warnings.get(7)).contains("$ComplexType1(size); Expected value that match any of enum 'io.pulumi.serialization.internal.ConverterTests$ContainerSize'");
+        assertThat(warnings.get(8)).contains("$ComplexType1(color); Expected value that match any of enum 'io.pulumi.serialization.internal.ConverterTests$ContainerColor'");
     }
 }

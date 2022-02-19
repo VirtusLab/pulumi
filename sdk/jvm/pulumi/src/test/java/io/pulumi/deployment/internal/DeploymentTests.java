@@ -333,6 +333,10 @@ public class DeploymentTests {
         return mockLog(defaultLogger(), () -> mock(Engine.class));
     }
 
+    public static Log mockLog(Logger logger) {
+        return mockLog(logger, () -> mock(Engine.class));
+    }
+
     public static Log mockLog(Logger logger, Supplier<Engine> engine) {
         return new Log(new DefaultEngineLogger(logger, () -> mock(Runner.class), engine));
     }

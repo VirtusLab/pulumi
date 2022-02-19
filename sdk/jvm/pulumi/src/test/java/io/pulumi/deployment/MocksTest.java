@@ -7,7 +7,6 @@ import io.pulumi.core.Input;
 import io.pulumi.core.InputOutputTests;
 import io.pulumi.core.Output;
 import io.pulumi.core.Tuples;
-import io.pulumi.core.internal.TypedInputOutput;
 import io.pulumi.core.internal.annotations.InputImport;
 import io.pulumi.core.internal.annotations.OutputCustomType;
 import io.pulumi.core.internal.annotations.OutputExport;
@@ -26,12 +25,12 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 import static io.pulumi.core.internal.Reflection.TypeShape.of;
 import static io.pulumi.deployment.internal.DeploymentTests.cleanupDeploymentMocks;
-import static io.pulumi.test.internal.assertj.PulumiConditions.containsString;
+import static io.pulumi.test.internal.assertj.PulumiConditions.endsWith;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MocksTest {
@@ -163,9 +162,7 @@ public class MocksTest {
         assertThat(resources).isNotEmpty();
 
         var exceptions = result.exceptions;
-        assertThat(exceptions).isNotEmpty();
-        assertThat(exceptions.stream().map(Throwable::getMessage).collect(Collectors.toList()))
-                .haveAtLeastOne(containsString("Instance.publicIp; Expected 'java.lang.String' but got 'java.lang.Double' while deserializing."));
+        assertThat(exceptions).isEmpty();
 
         var stack = resources.stream()
                 .filter(r -> r instanceof MyStack)
@@ -173,8 +170,16 @@ public class MocksTest {
                 .findFirst();
         assertThat(stack).isPresent();
 
-        var ipFuture = TypedInputOutput.cast(stack.get().publicIp).internalGetDataAsync();
-        assertThat(ipFuture).isCompletedExceptionally();
+        var ip = InputOutputTests.waitFor(stack.get().publicIp).getValueNullable();
+        assertThat(ip).isNull();
+
+        var warnings = log.getMessages().stream()
+                .filter(m -> m.contains("WARNING"))
+                .collect(toList());
+
+        assertThat(warnings).haveAtLeastOne(
+                endsWith("io.pulumi.deployment.MocksTest$Instance.publicIp; Expected 'java.lang.String' but got 'java.lang.Double' while deserializing.")
+        );
     }
 
     @ResourceType(type = "aws:ec2/instance:Instance")

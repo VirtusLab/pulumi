@@ -68,6 +68,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
     private final Log log;
     private final FeatureSupport featureSupport;
     private final Serialization serialization;
+    private final Converter converter;
     private final Invoke invoke;
     private final Call call;
     private final Prepare prepare;
@@ -92,14 +93,25 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
         this.log = new Log(state.logger, DeploymentState.ExcessiveDebugOutput);
         this.featureSupport = new FeatureSupport(state.monitor);
         this.serialization = new Serialization(this.log);
-        this.invoke = new Invoke(this.log, state.monitor, this.featureSupport, this.serialization);
+        this.converter = new Converter(this.log);
+        this.invoke = new Invoke(
+                this.log, state.monitor, this.featureSupport, this.serialization, this.converter
+        );
         this.rootResource = new RootResource(state.engine);
-        this.prepare = new Prepare(this.log, this.featureSupport, this.rootResource, this.serialization);
-        this.call = new Call(this.log, state.monitor, this.prepare, this.serialization);
+        this.prepare = new Prepare(
+                this.log, this.featureSupport, this.rootResource, this.serialization
+        );
+        this.call = new Call(
+                this.log, state.monitor, this.prepare, this.serialization, this.converter
+        );
         this.readResource = new ReadResource(this.log, this.prepare, state.monitor);
         this.registerResource = new RegisterResource(this.log, this.prepare, state.monitor);
-        this.readOrRegisterResource = new ReadOrRegisterResource(state.runner, this.invoke, this.readResource, this.registerResource, state.isDryRun);
-        this.registerResourceOutputs = new RegisterResourceOutputs(this.log, state.runner, state.monitor, this.featureSupport, this.serialization);
+        this.readOrRegisterResource = new ReadOrRegisterResource(
+                state.runner, this.invoke, this.readResource, this.registerResource, this.converter, state.isDryRun
+        );
+        this.registerResourceOutputs = new RegisterResourceOutputs(
+                this.log, state.runner, state.monitor, this.featureSupport, this.serialization
+        );
     }
 
     /**
@@ -402,12 +414,20 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
         private final Monitor monitor;
         private final FeatureSupport featureSupport;
         private final Serialization serialization;
+        private final Converter converter;
 
-        private Invoke(Log log, Monitor monitor, FeatureSupport featureSupport, Serialization serialization) {
+        private Invoke(
+                Log log,
+                Monitor monitor,
+                FeatureSupport featureSupport,
+                Serialization serialization,
+                Converter converter
+        ) {
             this.log = Objects.requireNonNull(log);
             this.monitor = Objects.requireNonNull(monitor);
             this.featureSupport = Objects.requireNonNull(featureSupport);
             this.serialization = Objects.requireNonNull(serialization);
+            this.converter = Objects.requireNonNull(converter);
         }
 
         public <T> Output<T> invoke(String token, TypeShape<T> targetType, InvokeArgs args) {
@@ -458,7 +478,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
             // `invoke`.
 
             return invokeRawAsync(token, args, options)
-                    .thenApply(result -> Converter.convertValue(
+                    .thenApply(result -> converter.convertValue(
                             String.format("%s result", token),
                             Value.newBuilder()
                                     .setStructValue(result.serialized)
@@ -484,7 +504,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
 
         public <T> CompletableFuture<T> invokeAsync(String token, TypeShape<T> targetType, InvokeArgs args, InvokeOptions options) {
             return invokeRawAsync(token, args, options).thenApply(
-                    result -> Converter.convertValue(
+                    result -> converter.convertValue(
                             String.format("%s result", token),
                             Value.newBuilder()
                                     .setStructValue(result.serialized)
@@ -588,12 +608,14 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
         private final Monitor monitor;
         private final Prepare prepare;
         private final Serialization serialization;
+        private final Converter converter;
 
-        public Call(Log log, Monitor monitor, Prepare prepare, Serialization serialization) {
+        public Call(Log log, Monitor monitor, Prepare prepare, Serialization serialization, Converter converter) {
             this.log = Objects.requireNonNull(log);
             this.monitor = Objects.requireNonNull(monitor);
             this.prepare = Objects.requireNonNull(prepare);
             this.serialization = Objects.requireNonNull(serialization);
+            this.converter = Objects.requireNonNull(converter);
         }
 
         void call(String token, CallArgs args) {
@@ -627,7 +649,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
             Objects.requireNonNull(options);
 
             return callRawAsync(token, args, self, options).thenApply(
-                    r -> Converter.convertValue(
+                    r -> converter.convertValue(
                             String.format("%s result", token),
                             Value.newBuilder()
                                     .setStructValue(r.result)
@@ -1008,13 +1030,22 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
         private final Invoke invoke;
         private final ReadResource readResource;
         private final RegisterResource registerResource;
+        private final Converter converter;
         private final boolean isDryRun;
 
-        private ReadOrRegisterResource(Runner runner, Invoke invoke, ReadResource readResource, RegisterResource registerResource, boolean isDryRun) {
+        private ReadOrRegisterResource(
+                Runner runner,
+                Invoke invoke,
+                ReadResource readResource,
+                RegisterResource registerResource,
+                Converter converter,
+                boolean isDryRun
+        ) {
             this.runner = Objects.requireNonNull(runner);
             this.invoke = Objects.requireNonNull(invoke);
             this.readResource = Objects.requireNonNull(readResource);
             this.registerResource = Objects.requireNonNull(registerResource);
+            this.converter = Objects.requireNonNull(converter);
             this.isDryRun = isDryRun;
         }
 
@@ -1087,7 +1118,7 @@ public class DeploymentImpl extends DeploymentInstanceHolder implements Deployme
                                             var contextInfo = String.format("%s.%s", resource.getClass().getTypeName(), fieldName);
                                             var depsOrEmpty = Maps.tryGetValue(dependencies, fieldName).orElse(ImmutableSet.of());
                                             //noinspection unchecked
-                                            completionSource.setValue(Converter.convertValue(
+                                            completionSource.setValue(converter.convertValue(
                                                     contextInfo,
                                                     value.get(),
                                                     completionSource.getTypeShape(),
