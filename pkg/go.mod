@@ -8,8 +8,8 @@ replace (
 )
 
 require (
-	cloud.google.com/go/logging v1.0.0
-	cloud.google.com/go/storage v1.15.0
+	cloud.google.com/go/logging v1.6.1
+	cloud.google.com/go/storage v1.27.0
 	github.com/aws/aws-sdk-go v1.38.35
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/djherbis/times v1.2.0
@@ -17,10 +17,10 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813
 	github.com/gofrs/uuid v3.3.0+incompatible
-	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/golang/glog v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-querystring v1.0.0
-	github.com/google/pprof v0.0.0-20210226084205-cbba55b83ad5
+	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1
 	github.com/gorilla/mux v1.7.4
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/hashicorp/go-multierror v1.1.1
@@ -40,19 +40,19 @@ require (
 	github.com/shurcooL/vfsgen v0.0.0-20200824052919-0d455de96546 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.0.0
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.8.1
 	github.com/tweekmonster/luser v0.0.0-20161003172636-3fa38070dbd7
 	github.com/xeipuuv/gojsonschema v1.2.0
 	github.com/zclconf/go-cty v1.3.1
 	gocloud.dev v0.23.0
 	gocloud.dev/secrets/hashivault v0.23.0
-	golang.org/x/crypto v0.0.0-20210506145944-38f3c27a63bf
-	golang.org/x/net v0.0.0-20210505214959-0714010a04ed
-	golang.org/x/oauth2 v0.0.0-20210427180440-81ed05c6b58c
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/api v0.46.0
-	google.golang.org/genproto v0.0.0-20210506142907-4a47615972c2
-	google.golang.org/grpc v1.37.0
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
+	golang.org/x/net v0.5.0
+	golang.org/x/oauth2 v0.4.0
+	golang.org/x/sync v0.1.0
+	google.golang.org/api v0.103.0
+	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f
+	google.golang.org/grpc v1.53.0
 	gopkg.in/AlecAivazis/survey.v1 v1.8.9-0.20200217094205-6773bdf39b7f
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0
