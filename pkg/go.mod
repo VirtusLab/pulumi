@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.35
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/djherbis/times v1.2.0
-	github.com/docker/docker v1.4.2-0.20200319182547-c7ad2b866182
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813
 	github.com/gofrs/uuid v3.3.0+incompatible
@@ -28,6 +28,7 @@ require (
 	github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd
 	github.com/json-iterator/go v1.1.9
 	github.com/mitchellh/copystructure v1.0.0
+	github.com/moby/term v0.5.0 // indirect
 	github.com/mxschmitt/golang-combinations v1.0.0
 	github.com/nbutton23/zxcvbn-go v0.0.0-20180912185939-ae427f1e4c1d
 	github.com/opentracing/opentracing-go v1.1.0
